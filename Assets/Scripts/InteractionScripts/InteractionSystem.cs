@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using OscJack;
 
@@ -7,28 +6,19 @@ public class InteractionSystem : MonoBehaviour
 {
     public bool grabbing = false;
     [SerializeField] GameObject actualInstrument;
-    private Vector2 offset;
+    [SerializeField] AudioSource actualInstrumentAudioSource;
+    [SerializeField] InstrumentData actualInstrumentData;
+    private Vector3 offset;
     private Mouse mouse;
-    private float originalZPos;
-    private RectTransform canvasRect;
-    private Canvas canvas;
+    private Camera mainCamera;
     
     private OscServer oscServer;
+    private float zDepth = 0f; // Profundidad Z fija para el movimiento
 
     private void Start()
     {
         mouse = Mouse.current;
-        
-        // Encontrar el Canvas en la escena
-        canvas = FindObjectOfType<Canvas>();
-        if (canvas != null && canvas.renderMode == RenderMode.WorldSpace)
-        {
-            canvasRect = canvas.GetComponent<RectTransform>();
-        }
-        else
-        {
-            Debug.LogError("No se encontró un Canvas con render mode World Space");
-        }
+        mainCamera = Camera.main;
         
         // Server Initialization
         oscServer = new OscServer(8888);
@@ -40,13 +30,12 @@ public class InteractionSystem : MonoBehaviour
         float x = data.GetElementAsFloat(0);
         float y = data.GetElementAsFloat(1);
 
-        Vector2 localPos = new Vector2(
-            x * canvasRect.sizeDelta.x - canvasRect.sizeDelta.x / 2,
-            y * canvasRect.sizeDelta.y - canvasRect.sizeDelta.y / 2
-        );
-    
-        Vector3 worldPos = canvasRect.TransformPoint(localPos);
-        worldPos.z = originalZPos;
+        // Convertir coordenadas normalizadas a posición en pantalla
+        Vector2 screenPos = new Vector2(x * Screen.width, y * Screen.height);
+        
+        // Convertir a posición 3D en el mundo con límites de pantalla
+        Vector3 worldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, zDepth));
+        worldPos = ClampToScreenBounds(worldPos);
 
         if (grabbing && actualInstrument != null)
         {
@@ -76,29 +65,31 @@ public class InteractionSystem : MonoBehaviour
 
     private void TryGrabInstrument()
     {
-        if (EventSystem.current.IsPointerOverGameObject())
+        Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit))
         {
-            PointerEventData pointerData = new PointerEventData(EventSystem.current)
+            if (hit.collider.CompareTag("Instrument"))
             {
-                position = mouse.position.ReadValue()
-            };
+                actualInstrument = hit.collider.gameObject;
+                actualInstrumentAudioSource = actualInstrument.GetComponent<AudioSource>();
+                actualInstrumentData = actualInstrument.GetComponent<Instrument>().instrumentData; 
+                grabbing = true;
 
-            var results = new System.Collections.Generic.List<RaycastResult>();
-            EventSystem.current.RaycastAll(pointerData, results);
+                // Establecer la profundidad Z basada en la posición actual del instrumento
+                zDepth = Mathf.Abs(mainCamera.transform.position.z - actualInstrument.transform.position.z);
+                
+                // Calcular offset
+                Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(
+                    new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, zDepth));
+                offset = actualInstrument.transform.position - mouseWorldPos;
 
-            foreach (var result in results)
-            {
-                if (result.gameObject.CompareTag("Instrument"))
+                // Reproducir sonido
+                if (actualInstrumentAudioSource != null && actualInstrumentData != null)
                 {
-                    actualInstrument = result.gameObject;
-                    grabbing = true;
-                    originalZPos = actualInstrument.transform.position.z;
-                    
-                    Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-                        new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, 
-                        canvas.planeDistance));
-                    offset = actualInstrument.transform.position - mouseWorldPos;
-                    break;
+                    actualInstrumentAudioSource.clip = actualInstrumentData.previewClip;
+                    actualInstrumentAudioSource.Play();
                 }
             }
         }
@@ -106,44 +97,89 @@ public class InteractionSystem : MonoBehaviour
 
     private void MoveInstrument()
     {
-        // Convertir posición del mouse a coordenadas en el plano del Canvas
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-            new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, 
-            canvas.planeDistance));
+        Vector3 mouseScreenPos = new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, zDepth);
+        Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(mouseScreenPos);
+        Vector3 targetPosition = mouseWorldPos + offset;
         
-        Vector3 targetPosition = mouseWorldPos + (Vector3)offset;
-        targetPosition.z = originalZPos;
-        
-        // Aplicar límites al movimiento
-        targetPosition = ClampPositionToCanvas(targetPosition);
+        // Aplicar límites de pantalla
+        targetPosition = ClampToScreenBounds(targetPosition);
         
         actualInstrument.transform.position = targetPosition;
     }
 
-    private Vector3 ClampPositionToCanvas(Vector3 targetPosition)
+    private Vector3 ClampToScreenBounds(Vector3 position)
     {
-        if (canvasRect == null) return targetPosition;
+        // Convertir posición mundial a posición de pantalla
+        Vector3 screenPos = mainCamera.WorldToScreenPoint(position);
         
-        // Convertir la posición mundial a posición local del Canvas
-        Vector2 localPosition = canvasRect.InverseTransformPoint(targetPosition);
+        // Calcular los bordes de la pantalla en coordenadas mundiales
+        float orthoSize = mainCamera.orthographicSize;
+        float aspectRatio = (float)Screen.width / Screen.height;
+        float cameraWidth = orthoSize * aspectRatio;
         
-        // Obtener los límites del Canvas (asumiendo pivote central)
-        Vector2 canvasHalfSize = canvasRect.sizeDelta / 2f;
+        Vector3 cameraPos = mainCamera.transform.position;
+        
+        // Límites en coordenadas mundiales
+        float leftBound = cameraPos.x - cameraWidth;
+        float rightBound = cameraPos.x + cameraWidth;
+        float bottomBound = cameraPos.y - orthoSize;
+        float topBound = cameraPos.y + orthoSize;
         
         // Aplicar límites
-        localPosition.x = Mathf.Clamp(localPosition.x, -canvasHalfSize.x, canvasHalfSize.x);
-        localPosition.y = Mathf.Clamp(localPosition.y, -canvasHalfSize.y, canvasHalfSize.y);
+        position.x = Mathf.Clamp(position.x, leftBound, rightBound);
+        position.y = Mathf.Clamp(position.y, bottomBound, topBound);
+        position.z = Mathf.Clamp(position.z, cameraPos.z - 10f, cameraPos.z + 10f); // Pequeño margen en Z
         
-        // Convertir de vuelta a posición mundial
-        return canvasRect.TransformPoint(localPosition);
+        return position;
+    }
+
+    // Método alternativo usando Viewport (puede ser más preciso)
+    private Vector3 ClampToViewport(Vector3 position)
+    {
+        // Convertir a coordenadas de viewport (0-1)
+        Vector3 viewportPos = mainCamera.WorldToViewportPoint(position);
+        
+        // Aplicar límites en viewport
+        viewportPos.x = Mathf.Clamp01(viewportPos.x);
+        viewportPos.y = Mathf.Clamp01(viewportPos.y);
+        
+        // Convertir de vuelta a coordenadas mundiales
+        return mainCamera.ViewportToWorldPoint(viewportPos);
     }
 
     private void ReleaseInstrument()
     {
         grabbing = false;
+        
+        if (actualInstrumentAudioSource != null)
+        {
+            actualInstrumentAudioSource.Stop();
+        }
+        
         actualInstrument = null;
+        actualInstrumentAudioSource = null;
+        actualInstrumentData = null;
     }
     
     #endregion
-    
+
+    private void OnDestroy()
+    {
+        oscServer?.Dispose();
+    }
+
+    // Método opcional para debug - visualizar los límites en el Editor
+    private void OnDrawGizmos()
+    {
+        if (mainCamera != null && mainCamera.orthographic)
+        {
+            Gizmos.color = Color.red;
+            float orthoSize = mainCamera.orthographicSize;
+            float aspect = mainCamera.aspect;
+            Vector3 cameraPos = mainCamera.transform.position;
+            
+            Vector3 size = new Vector3(orthoSize * aspect * 2, orthoSize * 2, 0.1f);
+            Gizmos.DrawWireCube(cameraPos, size);
+        }
+    }
 }

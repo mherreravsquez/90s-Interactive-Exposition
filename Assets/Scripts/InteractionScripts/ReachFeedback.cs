@@ -1,16 +1,28 @@
+using System;
+using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class ReachFeedback : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public List<AudioSource> instruments = new List<AudioSource>();
+
+    private void OnTriggerEnter(Collider other)
     {
-        
+        if (other.CompareTag("Instrument"))
+        {
+            instruments.Add(other.gameObject.GetComponent<AudioSource>());
+            
+            Debug.Log(other.name + " is in trigger");
+            
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    private void OnTriggerExit(Collider other)
     {
-        
+        if (other.CompareTag("Instrument"))
+        {
+            instruments.Remove(other.gameObject.GetComponent<AudioSource>());
+        }
     }
 }

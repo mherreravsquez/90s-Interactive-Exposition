@@ -6,7 +6,7 @@ public class BoomboxManager : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
-        InstrumentData instrument = other.GetComponent<InstrumentData>();
+        InstrumentData instrument = other.GetComponent<Instrument>().instrumentData;
         if (instrument != null)
         {
             Debug.Log($"Instrumento {instrument.instrumentType} soltado en el trigger");
@@ -15,13 +15,17 @@ public class BoomboxManager : MonoBehaviour
             if (oscManager != null)
             {
                 oscManager.SendTrackUnmute(instrument.instrumentID);
+                
+                other.gameObject.GetComponent<MeshRenderer>().enabled = false;
+                other.gameObject.transform.parent = transform;
+                other.gameObject.transform.localPosition = Vector3.zero;
             }
         }
     }
     
     void OnTriggerExit(Collider other)
     {
-        InstrumentData instrument = other.GetComponent<InstrumentData>();
+        InstrumentData instrument = other.GetComponent<Instrument>().instrumentData;
         if (instrument != null)
         {
             Debug.Log($"Instrumento {instrument.instrumentType} salió del trigger");
