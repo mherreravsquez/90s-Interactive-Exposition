@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using OscJack;
 
 public class InteractionSystem : MonoBehaviour
 {
@@ -12,35 +11,12 @@ public class InteractionSystem : MonoBehaviour
     private Mouse mouse;
     private Camera mainCamera;
     
-    private OscServer oscServer;
     private float zDepth = 0f; // Profundidad Z fija para el movimiento
 
     private void Start()
     {
         mouse = Mouse.current;
         mainCamera = Camera.main;
-        
-        // Server Initialization
-        oscServer = new OscServer(8888);
-        oscServer.MessageDispatcher.AddCallback("/touchpad", OnOSCTouchpadMessage);
-    }
-    
-    private void OnOSCTouchpadMessage(string address, OscDataHandle data)
-    {
-        float x = data.GetElementAsFloat(0);
-        float y = data.GetElementAsFloat(1);
-
-        // Convertir coordenadas normalizadas a posición en pantalla
-        Vector2 screenPos = new Vector2(x * Screen.width, y * Screen.height);
-        
-        // Convertir a posición 3D en el mundo con límites de pantalla
-        Vector3 worldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, zDepth));
-        worldPos = ClampToScreenBounds(worldPos);
-
-        if (grabbing && actualInstrument != null)
-        {
-            actualInstrument.transform.position = worldPos;
-        }
     }
 
     void Update()
@@ -162,11 +138,6 @@ public class InteractionSystem : MonoBehaviour
     }
     
     #endregion
-
-    private void OnDestroy()
-    {
-        oscServer?.Dispose();
-    }
 
     // Método opcional para debug - visualizar los límites en el Editor
     private void OnDrawGizmos()
