@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Linq;
+using Windows.Kinect;
+using AudioSource = UnityEngine.AudioSource;
 
 public class InteractionSystem : MonoBehaviour
 {
@@ -11,17 +14,34 @@ public class InteractionSystem : MonoBehaviour
     private Mouse mouse;
     private Camera mainCamera;
     
-    private float zDepth = 0f; // Profundidad Z fija para el movimiento
+    private float zDepth = 10f; // Profundidad más adecuada para cámara ortográfica
+    
+    // Variables para control por Kinect
+    [Header("Kinect Controls")]
+    [SerializeField] private bool useKinect = true;
+    [SerializeField] private GameObject kinectCursor; // ASIGNA ESTE OBJETO EN EL INSPECTOR
+    private bool wasFirePressed = false;
+    private Vector3 kinectHandScreenPosition = Vector3.zero;
+    
+    // Rangos de calibración para Kinect (ajusta según necesites)
+    [SerializeField] private float minX = -1f, maxX = 1f;
+    [SerializeField] private float minY = 0.5f, maxY = 2f;
 
     private void Start()
     {
         mouse = Mouse.current;
         mainCamera = Camera.main;
+        
+        // Asegurar que el cursor de Kinect esté desactivado inicialmente
+        if (kinectCursor != null)
+            kinectCursor.SetActive(false);
     }
-
+    
     void Update()
     {
-        if (mouse.leftButton.wasPressedThisFrame)
+        UpdateKinectHandPosition();
+        
+        if (WasGrabInputPressed())
         {
             TryGrabInstrument();
         }
@@ -31,17 +51,139 @@ public class InteractionSystem : MonoBehaviour
             MoveInstrument();
         }
 
-        if (mouse.leftButton.wasReleasedThisFrame)
+        if (WasGrabInputReleased())
         {
             ReleaseInstrument();
         }
+        
+        if (useKinect && KinectManager.Instance != null && KinectManager.Instance.IsAvailable)
+        {
+            Vector3 inputPosition = GetInputPosition();
+            inputPosition.z = 0f;
+            Ray ray = mainCamera.ScreenPointToRay(mainCamera.WorldToScreenPoint(inputPosition));
+            Debug.DrawRay(ray.origin, ray.direction * 100f, Color.green);
+        }
+    }
+
+    private void UpdateKinectHandPosition()
+    {
+        if (!useKinect || KinectManager.Instance == null || !KinectManager.Instance.IsAvailable)
+        {
+            if (kinectCursor != null) 
+                kinectCursor.SetActive(false);
+            return;
+        }
+
+        Body[] bodies = KinectManager.Instance.GetBodies();
+        if (bodies == null) return;
+
+        var trackedBody = bodies.FirstOrDefault(b => b.IsTracked);
+        if (trackedBody == null) 
+        {
+            if (kinectCursor != null) 
+                kinectCursor.SetActive(false);
+            return;
+        }
+
+        if (kinectCursor != null) 
+            kinectCursor.SetActive(true);
+
+        var handRight = trackedBody.Joints[JointType.HandRight].Position;
+        
+        // Mapeo mejorado
+        float screenX = MapValue(handRight.X, minX, maxX, 0f, Screen.width);
+        float screenY = MapValue(handRight.Y, minY, maxY, Screen.height, 0f); // Y invertido
+        
+        screenX = Mathf.Clamp(screenX, 0f, Screen.width);
+        screenY = Mathf.Clamp(screenY, 0f, Screen.height);
+        
+        kinectHandScreenPosition = new Vector3(screenX, screenY, 10f);
+        
+        UpdateKinectCursor();
+    }
+
+    private void UpdateKinectCursor()
+    {
+        if (kinectCursor == null)
+        {
+            Debug.LogWarning("KinectCursor reference is null!");
+            return;
+        }
+        
+        // Convertir posición de pantalla a posición mundial
+        Vector3 worldPos = mainCamera.ScreenToWorldPoint(kinectHandScreenPosition);
+        worldPos.z = 0f;
+        Debug.Log($"World Position: {worldPos}");
+        
+        kinectCursor.transform.position = worldPos;
+        
+        // Actualizar el estado de agarre en el cursor visual
+        KinectCursor cursorScript = kinectCursor.GetComponent<KinectCursor>();
+        if (cursorScript != null)
+        {
+            cursorScript.SetGrabbingState(KinectManager.Instance.IsFire);
+        }
+    }
+
+    private bool WasGrabInputPressed()
+    {
+        if (useKinect && KinectManager.Instance != null && KinectManager.Instance.IsAvailable)
+        {
+            bool isFirePressed = KinectManager.Instance.IsFire;
+            bool pressed = isFirePressed && !wasFirePressed;
+            wasFirePressed = isFirePressed;
+            return pressed;
+        }
+        else
+        {
+            return mouse.leftButton.wasPressedThisFrame;
+        }
+    }
+
+    private bool WasGrabInputReleased()
+    {
+        if (useKinect && KinectManager.Instance != null && KinectManager.Instance.IsAvailable)
+        {
+            bool isFirePressed = KinectManager.Instance.IsFire;
+            bool released = !isFirePressed && wasFirePressed;
+            wasFirePressed = isFirePressed;
+            return released;
+        }
+        else
+        {
+            return mouse.leftButton.wasReleasedThisFrame;
+        }
+    }
+
+    private Vector3 GetInputPosition()
+    {
+        if (useKinect && KinectManager.Instance != null && KinectManager.Instance.IsAvailable)
+        {
+            return mainCamera.ScreenToWorldPoint(kinectHandScreenPosition);
+        }
+        else
+        {
+            Vector3 mousePos = mouse.position.ReadValue();
+            return mainCamera.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, zDepth));
+        }
+    }
+
+    private float MapValue(float value, float fromMin, float fromMax, float toMin, float toMax)
+    {
+        return (value - fromMin) * (toMax - toMin) / (fromMax - fromMin) + toMin;
     }
 
     #region Instrument Interaction Methods
 
     private void TryGrabInstrument()
     {
-        Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
+        Vector3 inputPosition = GetInputPosition();
+        
+        // Para Kinect, usar ScreenPointToRay con las coordenadas de pantalla
+        Ray ray = useKinect ? 
+            mainCamera.ScreenPointToRay(kinectHandScreenPosition) :
+            mainCamera.ScreenPointToRay(mouse.position.ReadValue());
+            
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit))
@@ -50,16 +192,21 @@ public class InteractionSystem : MonoBehaviour
             {
                 actualInstrument = hit.collider.gameObject;
                 actualInstrumentAudioSource = actualInstrument.GetComponent<AudioSource>();
-                actualInstrumentData = actualInstrument.GetComponent<Instrument>().instrumentData; 
+                
+                Instrument instrumentComponent = actualInstrument.GetComponent<Instrument>();
+                if (instrumentComponent != null)
+                {
+                    actualInstrumentData = instrumentComponent.instrumentData;
+                }
+                
                 grabbing = true;
 
-                // Establecer la profundidad Z basada en la posición actual del instrumento
+                // Establecer la profundidad Z
                 zDepth = Mathf.Abs(mainCamera.transform.position.z - actualInstrument.transform.position.z);
                 
                 // Calcular offset
-                Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(
-                    new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, zDepth));
-                offset = actualInstrument.transform.position - mouseWorldPos;
+                Vector3 inputWorldPos = GetInputPosition();
+                offset = actualInstrument.transform.position - inputWorldPos;
 
                 // Reproducir sonido
                 if (actualInstrumentAudioSource != null && actualInstrumentData != null)
@@ -73,9 +220,8 @@ public class InteractionSystem : MonoBehaviour
 
     private void MoveInstrument()
     {
-        Vector3 mouseScreenPos = new Vector3(mouse.position.ReadValue().x, mouse.position.ReadValue().y, zDepth);
-        Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(mouseScreenPos);
-        Vector3 targetPosition = mouseWorldPos + offset;
+        Vector3 inputWorldPos = GetInputPosition();
+        Vector3 targetPosition = inputWorldPos + offset;
         
         // Aplicar límites de pantalla
         targetPosition = ClampToScreenBounds(targetPosition);
@@ -85,41 +231,16 @@ public class InteractionSystem : MonoBehaviour
 
     private Vector3 ClampToScreenBounds(Vector3 position)
     {
-        // Convertir posición mundial a posición de pantalla
-        Vector3 screenPos = mainCamera.WorldToScreenPoint(position);
-        
-        // Calcular los bordes de la pantalla en coordenadas mundiales
-        float orthoSize = mainCamera.orthographicSize;
-        float aspectRatio = (float)Screen.width / Screen.height;
-        float cameraWidth = orthoSize * aspectRatio;
-        
-        Vector3 cameraPos = mainCamera.transform.position;
-        
-        // Límites en coordenadas mundiales
-        float leftBound = cameraPos.x - cameraWidth;
-        float rightBound = cameraPos.x + cameraWidth;
-        float bottomBound = cameraPos.y - orthoSize;
-        float topBound = cameraPos.y + orthoSize;
-        
-        // Aplicar límites
-        position.x = Mathf.Clamp(position.x, leftBound, rightBound);
-        position.y = Mathf.Clamp(position.y, bottomBound, topBound);
-        position.z = Mathf.Clamp(position.z, cameraPos.z - 10f, cameraPos.z + 10f); // Pequeño margen en Z
-        
-        return position;
+        return ClampToViewport(position);
     }
 
-    // Método alternativo usando Viewport (puede ser más preciso)
     private Vector3 ClampToViewport(Vector3 position)
     {
-        // Convertir a coordenadas de viewport (0-1)
         Vector3 viewportPos = mainCamera.WorldToViewportPoint(position);
         
-        // Aplicar límites en viewport
         viewportPos.x = Mathf.Clamp01(viewportPos.x);
         viewportPos.y = Mathf.Clamp01(viewportPos.y);
         
-        // Convertir de vuelta a coordenadas mundiales
         return mainCamera.ViewportToWorldPoint(viewportPos);
     }
 
@@ -139,18 +260,13 @@ public class InteractionSystem : MonoBehaviour
     
     #endregion
 
-    // Método opcional para debug - visualizar los límites en el Editor
-    private void OnDrawGizmos()
+    // Método para debug - ver valores de Kinect en tiempo real
+    private void OnGUI()
     {
-        if (mainCamera != null && mainCamera.orthographic)
+        if (useKinect && KinectManager.Instance != null && KinectManager.Instance.IsAvailable)
         {
-            Gizmos.color = Color.red;
-            float orthoSize = mainCamera.orthographicSize;
-            float aspect = mainCamera.aspect;
-            Vector3 cameraPos = mainCamera.transform.position;
-            
-            Vector3 size = new Vector3(orthoSize * aspect * 2, orthoSize * 2, 0.1f);
-            Gizmos.DrawWireCube(cameraPos, size);
+            GUI.Label(new Rect(10, 10, 300, 20), $"Kinect Hand: {kinectHandScreenPosition}");
+            GUI.Label(new Rect(10, 30, 300, 20), $"IsFire: {KinectManager.Instance.IsFire}");
         }
     }
 }
