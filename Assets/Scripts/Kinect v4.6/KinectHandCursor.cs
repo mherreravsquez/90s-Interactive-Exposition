@@ -1,185 +1,135 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
 using Windows.Kinect;
 using TMPro;
 
 public class KinectHandCursor : MonoBehaviour
 {
-    [Header("Kinect Settings")]
+    [Header("Settings")]
     public bool useRightHand = true;
-    public float smoothFactor = 8f;
+    public float smoothFactor = 10f;
     
-    [Header("UI References")]
+    [Header("References")]
     public RectTransform handCursor;
     public Camera uiCamera;
     public TextMeshProUGUI debugText;
 
-    // Kinect variables
+    private BodySourceManager _bodyManager;
     private KinectSensor _sensor;
-    private BodyFrameReader _bodyReader;
-    private Body[] _bodies;
-    private HandState _lastHandState = HandState.Unknown;
-    private bool _isKinectInitialized = false;
 
     void Start()
     {
         Debug.Log("Iniciando KinectHandCursor...");
-        InitializeKinect();
+        
+        // Buscar o crear BodySourceManager
+        _bodyManager = FindObjectOfType<BodySourceManager>();
+        if (_bodyManager == null)
+        {
+            GameObject managerObj = new GameObject("BodySourceManager");
+            _bodyManager = managerObj.AddComponent<BodySourceManager>();
+        }
+
+        _sensor = KinectSensor.GetDefault();
+        
+        UpdateDebugText("Sistema iniciado - Esperando datos del cuerpo...");
     }
 
     void Update()
     {
-        if (_isKinectInitialized && _sensor != null && _sensor.IsOpen)
-        {
-            UpdateBodyData();
-        }
-    }
-
-    private void InitializeKinect()
-    {
-        try
-        {
-            _sensor = KinectSensor.GetDefault();
-            
-            if (_sensor == null)
-            {
-                Debug.LogError("No se pudo encontrar el sensor Kinect");
-                UpdateDebugText("ERROR: Kinect no encontrada");
-                return;
-            }
-
-            if (!_sensor.IsOpen)
-            {
-                _sensor.Open();
-                Debug.Log("Kinect abierta correctamente");
-            }
-
-            _bodyReader = _sensor.BodyFrameSource.OpenReader();
-            _bodies = new Body[_sensor.BodyFrameSource.BodyCount];
-            
-            _isKinectInitialized = true;
-            UpdateDebugText("Kinect inicializada - Esperando cuerpo...");
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Error inicializando Kinect: {e.Message}");
-            UpdateDebugText($"ERROR: {e.Message}");
-        }
-    }
-
-    private void UpdateBodyData()
-    {
-        if (_bodyReader == null) return;
+        if (_bodyManager == null || _sensor == null || !_sensor.IsOpen) return;
 
         try
         {
-            var frame = _bodyReader.AcquireLatestFrame();
-            if (frame != null)
+            Body[] bodies = _bodyManager.GetData();
+            if (bodies == null) return;
+
+            foreach (var body in bodies)
             {
-                frame.GetAndRefreshBodyData(_bodies);
-                ProcessTrackedBodies();
-                frame.Dispose();
+                if (body != null && body.IsTracked)
+                {
+                    UpdateCursorWithBody(body);
+                    return; // Solo procesar el primer cuerpo
+                }
             }
+            
+            // Si no hay cuerpos trackeados
+            UpdateDebugText("Por favor, párate frente al sensor Kinect");
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"Error en frame: {e.Message}");
+            Debug.LogError($"Error en Update: {e.Message}");
         }
     }
 
-    private void ProcessTrackedBodies()
+    private void UpdateCursorWithBody(Body body)
     {
-        bool bodyFound = false;
-        
-        if (_bodies == null) return;
-
-        for (int i = 0; i < _bodies.Length; i++)
-        {
-            if (_bodies[i] != null && _bodies[i].IsTracked)
-            {
-                UpdateCursorPosition(_bodies[i]);
-                CheckHandGesture(_bodies[i]);
-                bodyFound = true;
-                break;
-            }
-        }
-
-        if (!bodyFound)
-        {
-            UpdateDebugText("Kinect activa - Mueve tus manos frente al sensor");
-        }
-    }
-
-    private void UpdateCursorPosition(Body body)
-    {
-        if (body == null || handCursor == null) return;
+        if (handCursor == null) return;
 
         JointType handType = useRightHand ? JointType.HandRight : JointType.HandLeft;
         var handJoint = body.Joints[handType];
         
         if (handJoint.TrackingState == TrackingState.Tracked)
         {
-            Vector2 screenPos = GetHandScreenPosition(handJoint);
+            Vector2 screenPos = MapToScreenPoint(handJoint.Position);
             SetCursorPosition(screenPos);
             
-            UpdateDebugText($"Mano detectada - Posición: {screenPos}");
+            // Debug info
+            string handState = useRightHand ? 
+                body.HandRightState.ToString() : body.HandLeftState.ToString();
+            UpdateDebugText($"Mano detectada | Estado: {handState} | Pos: {screenPos}");
         }
         else
         {
-            UpdateDebugText("Mano no trackeada - Asegúrate de estar frente al sensor");
+            UpdateDebugText("Mano encontrada pero no trackeada correctamente");
         }
     }
 
-    private Vector2 GetHandScreenPosition(Windows.Kinect.Joint handJoint)
+    private Vector2 MapToScreenPoint(Windows.Kinect.CameraSpacePoint position)
     {
+        if (_sensor == null) return Vector2.zero;
+
         try
         {
-            ColorSpacePoint colorSpacePoint = _sensor.CoordinateMapper.MapCameraPointToColorSpace(handJoint.Position);
+            // Mapear directamente a coordenadas de pantalla
+            ColorSpacePoint colorPoint = _sensor.CoordinateMapper.MapCameraPointToColorSpace(position);
             
-            // Ajustar coordenadas (puede necesitar calibración)
-            float x = Mathf.Clamp(colorSpacePoint.X / 1920f, 0f, 1f);
-            float y = Mathf.Clamp(colorSpacePoint.Y / 1080f, 0f, 1f);
+            // Ajustar a resolución de pantalla
+            float x = (colorPoint.X / 1920f) * Screen.width;
+            float y = (1 - (colorPoint.Y / 1080f)) * Screen.height;
             
-            Vector2 screenPos = new Vector2(x * Screen.width, (1 - y) * Screen.height);
-            return screenPos;
+            return new Vector2(x, y);
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Error en mapeo de coordenadas: {e.Message}");
+            Debug.LogError($"Error en mapeo: {e.Message}");
             return Vector2.zero;
         }
     }
 
     private void SetCursorPosition(Vector2 screenPosition)
     {
-        if (handCursor == null || uiCamera == null)
-        {
-            Debug.LogWarning("Referencias faltantes: handCursor o uiCamera");
-            return;
-        }
+        if (handCursor == null || uiCamera == null) return;
 
         try
         {
             Vector2 localPoint;
-            RectTransform parentCanvas = handCursor.parent as RectTransform;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                (RectTransform)handCursor.parent,
+                screenPosition,
+                uiCamera,
+                out localPoint
+            );
             
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                parentCanvas, screenPosition, uiCamera, out localPoint))
-            {
-                handCursor.anchoredPosition = Vector2.Lerp(
-                    handCursor.anchoredPosition, 
-                    localPoint, 
-                    Time.deltaTime * smoothFactor);
-            }
-            else
-            {
-                Debug.LogWarning("No se pudo convertir coordenadas de pantalla");
-            }
+            // Aplicar con suavizado
+            handCursor.anchoredPosition = Vector2.Lerp(
+                handCursor.anchoredPosition, 
+                localPoint, 
+                Time.deltaTime * smoothFactor
+            );
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Error moviendo cursor: {e.Message}");
+            Debug.LogWarning($"Error posicionando cursor: {e.Message}");
         }
     }
 
@@ -189,52 +139,6 @@ public class KinectHandCursor : MonoBehaviour
         {
             debugText.text = message;
         }
-    }
-    
-    private void CheckHandGesture(Body body)
-    {
-        HandState currentHandState = useRightHand ? body.HandRightState : body.HandLeftState;
-        
-        if (_lastHandState != HandState.Closed && currentHandState == HandState.Closed)
-        {
-            DetectUIClick();
-        }
-        
-        _lastHandState = currentHandState;
-    }
-    
-    private void DetectUIClick()
-    {
-        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(uiCamera, handCursor.position);
-        
-        var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
-        pointerData.position = screenPos;
-        
-        var results = new List<UnityEngine.EventSystems.RaycastResult>();
-        UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
-        
-        if (results.Count > 0)
-        {
-            GameObject clickedObject = results[0].gameObject;
-            Button button = clickedObject.GetComponent<Button>();
-            if (button != null && button.interactable)
-            {
-                button.onClick.Invoke();
-            }
-        }
-    }
-    
-    void OnDestroy()
-    {
-        if (_bodyReader != null)
-        {
-            _bodyReader.Dispose();
-            _bodyReader = null;
-        }
-        
-        if (_sensor != null && _sensor.IsOpen)
-        {
-            _sensor.Close();
-        }
+        Debug.Log(message);
     }
 }
