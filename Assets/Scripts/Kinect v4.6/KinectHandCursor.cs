@@ -71,6 +71,9 @@ public class KinectHandCursor : MonoBehaviour
         if (handJoint.TrackingState == TrackingState.Tracked)
         {
             Vector2 screenPos = MapToScreenPoint(handJoint.Position);
+
+            // O AQUÍ
+             
             SetCursorPosition(screenPos);
             
             // Debug info
@@ -95,7 +98,7 @@ public class KinectHandCursor : MonoBehaviour
             
             // Ajustar a resolución de pantalla
             float x = (colorPoint.X / 1920f) * Screen.width;
-            float y = (1 - (colorPoint.Y / 1080f)) * Screen.height;
+            float y = (1 - (colorPoint.Y / 1920f)) * Screen.height;
             
             return new Vector2(x, y);
         }
@@ -108,6 +111,8 @@ public class KinectHandCursor : MonoBehaviour
 
     private void SetCursorPosition(Vector2 screenPosition)
     {
+         // EL ERROR ESTÁ AQUÍ
+
         if (handCursor == null || uiCamera == null) return;
 
         try
