@@ -74,3 +74,5 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 *.reapeaks
+Assets/AudioClips/peaks.meta
+Assets/AudioClips/peaks/Mariposa tecknicolor - Fito Páez.mp3.reapeaks.meta
