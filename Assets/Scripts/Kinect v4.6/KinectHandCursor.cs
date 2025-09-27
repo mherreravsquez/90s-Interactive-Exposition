@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Windows.Kinect;
 using TMPro;
+using Joint = Windows.Kinect.Joint;
 
 public class KinectHandCursor : MonoBehaviour
 {
@@ -10,140 +11,125 @@ public class KinectHandCursor : MonoBehaviour
     public float smoothFactor = 10f;
     
     [Header("References")]
-    public RectTransform handCursor;
-    public Camera uiCamera;
+    public RectTransform cursor;
     public TextMeshProUGUI debugText;
 
     private BodySourceManager _bodyManager;
-    private KinectSensor _sensor;
+    private KinectSensor _kinect;
 
     void Start()
     {
-        Debug.Log("Iniciando KinectHandCursor...");
-        
-        // Buscar o crear BodySourceManager
+        // Automatically find BodySourceManager
         _bodyManager = FindObjectOfType<BodySourceManager>();
-        if (_bodyManager == null)
-        {
-            GameObject managerObj = new GameObject("BodySourceManager");
-            _bodyManager = managerObj.AddComponent<BodySourceManager>();
-        }
-
-        _sensor = KinectSensor.GetDefault();
+        _kinect = KinectSensor.GetDefault();
         
-        UpdateDebugText("Sistema iniciado - Esperando datos del cuerpo...");
+        UpdateDebugText("✅ System ready. Move your hands.");
     }
 
     void Update()
     {
-        if (_bodyManager == null || _sensor == null || !_sensor.IsOpen) return;
+        if (_bodyManager == null || _kinect == null || !_kinect.IsOpen) return;
 
-        try
+        // Get body data
+        Body[] bodies = _bodyManager.GetData();
+        if (bodies == null) return;
+
+        // Find first tracked body
+        foreach (Body body in bodies)
         {
-            Body[] bodies = _bodyManager.GetData();
-            if (bodies == null) return;
-
-            foreach (var body in bodies)
+            if (body != null && body.IsTracked)
             {
-                if (body != null && body.IsTracked)
-                {
-                    UpdateCursorWithBody(body);
-                    return; // Solo procesar el primer cuerpo
-                }
+                MoveCursor(body);
+                return;
             }
-            
-            // Si no hay cuerpos trackeados
-            UpdateDebugText("Por favor, párate frente al sensor Kinect");
         }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Error en Update: {e.Message}");
-        }
+        
+        UpdateDebugText("👀 Please stand in front of Kinect sensor");
     }
 
-    private void UpdateCursorWithBody(Body body)
+    private void MoveCursor(Body body)
     {
-        if (handCursor == null) return;
+        if (cursor == null) return;
 
+        // Choose which hand to follow
         JointType handType = useRightHand ? JointType.HandRight : JointType.HandLeft;
-        var handJoint = body.Joints[handType];
+        Joint hand = body.Joints[handType];
         
-        if (handJoint.TrackingState == TrackingState.Tracked)
+        if (hand.TrackingState == TrackingState.Tracked)
         {
-            Vector2 screenPos = MapToScreenPoint(handJoint.Position);
-
-            // O AQUÍ
-             
-            SetCursorPosition(screenPos);
+            // 1. Get hand position in 2D screen coordinates
+            Vector2 screenPosition = ConvertToScreen(hand.Position);
             
-            // Debug info
+            // 2. Move the cursor
+            MoveCursorUI(screenPosition);
+            
+            // 3. Show debug information
             string handState = useRightHand ? 
                 body.HandRightState.ToString() : body.HandLeftState.ToString();
-            UpdateDebugText($"Mano detectada | Estado: {handState} | Pos: {screenPos}");
-        }
-        else
-        {
-            UpdateDebugText("Mano encontrada pero no trackeada correctamente");
+            UpdateDebugText($"✋ Hand detected | State: {handState}");
         }
     }
 
-    private Vector2 MapToScreenPoint(Windows.Kinect.CameraSpacePoint position)
+    private Vector2 ConvertToScreen(Windows.Kinect.CameraSpacePoint position3D)
     {
-        if (_sensor == null) return Vector2.zero;
-
         try
         {
-            // Mapear directamente a coordenadas de pantalla
-            ColorSpacePoint colorPoint = _sensor.CoordinateMapper.MapCameraPointToColorSpace(position);
+            // Convert Kinect 3D coordinates to 2D color coordinates
+            ColorSpacePoint colorPoint = _kinect.CoordinateMapper.MapCameraPointToColorSpace(position3D);
             
-            // Ajustar a resolución de pantalla
-            float x = (colorPoint.X / 1920f) * Screen.width;
-            float y = (1 - (colorPoint.Y / 1920f)) * Screen.height;
+            // Adjust to Kinect camera resolution (1920x1080)
+            float normalizedX = colorPoint.X / 1920f;
+            float normalizedY = colorPoint.Y / 1080f;
             
-            return new Vector2(x, y);
+            // Convert to Unity screen pixels (invert Y)
+            float screenX = normalizedX * Screen.width;
+            float screenY = (1 - normalizedY) * Screen.height;
+            
+            return new Vector2(screenX, screenY);
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Error en mapeo: {e.Message}");
+            Debug.LogError($"Conversion error: {e.Message}");
             return Vector2.zero;
         }
     }
 
-    private void SetCursorPosition(Vector2 screenPosition)
+    private void MoveCursorUI(Vector2 screenPosition)
     {
-         // EL ERROR ESTÁ AQUÍ
-
-        if (handCursor == null || uiCamera == null) return;
+        if (cursor == null) return;
 
         try
         {
+            // For Screen Space - Overlay Canvas, it's simpler
             Vector2 localPoint;
+            
+            // If cursor is directly in Canvas
+            RectTransform canvasRect = cursor.parent as RectTransform;
+            
+            // Convert screen coordinates to Canvas local coordinates
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                (RectTransform)handCursor.parent,
+                canvasRect,
                 screenPosition,
-                uiCamera,
+                null, // No camera needed for Overlay mode
                 out localPoint
             );
             
-            // Aplicar con suavizado
-            handCursor.anchoredPosition = Vector2.Lerp(
-                handCursor.anchoredPosition, 
+            // Apply smooth movement
+            cursor.anchoredPosition = Vector2.Lerp(
+                cursor.anchoredPosition, 
                 localPoint, 
                 Time.deltaTime * smoothFactor
             );
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"Error posicionando cursor: {e.Message}");
+            Debug.LogWarning($"Cursor movement error: {e.Message}");
         }
     }
 
     private void UpdateDebugText(string message)
     {
-        if (debugText != null)
-        {
-            debugText.text = message;
-        }
+        if (debugText != null) debugText.text = message;
         Debug.Log(message);
     }
 }
