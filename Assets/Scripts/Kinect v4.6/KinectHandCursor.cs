@@ -18,6 +18,8 @@ public class KinectHandCursor : MonoBehaviour
     public RectTransform cursor;
     public Camera sceneCamera;
     public TextMeshProUGUI debugText;
+    [Space(5)]
+    public InstrumentData grabbedInstrument;
     [Space(15)]
     
     [Header("Hand Sprites")]
@@ -139,6 +141,7 @@ public class KinectHandCursor : MonoBehaviour
         {
             if (hit.collider.CompareTag("Instrument"))
             {
+                grabbedInstrument = hit.collider.GetComponent<Instrument>().instrumentData;
                 GrabInstrument(hit.collider.gameObject, hit.point);
             }
         }
@@ -150,6 +153,7 @@ public class KinectHandCursor : MonoBehaviour
             {
                 if (sphereHit.collider.CompareTag("Instrument"))
                 {
+                    grabbedInstrument = hit.collider.GetComponent<Instrument>().instrumentData;
                     GrabInstrument(sphereHit.collider.gameObject, sphereHit.point);
                     break;
                 }
@@ -181,6 +185,8 @@ public class KinectHandCursor : MonoBehaviour
         Debug.Log($"Released instrument: {_grabbedObject.name}");
         _grabbedObject = null;
         _isGrabbing = false;
+
+        grabbedInstrument = null;
     }
 
     #endregion
