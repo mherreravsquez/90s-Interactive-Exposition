@@ -25,7 +25,7 @@ public class BodyTrackingDiagnostic : MonoBehaviour
         
         if (sensor != null && sensor.IsOpen)
         {
-            diagnosticText.text += "✅ Kinect conectada y abierta\n";
+            diagnosticText.text += "Kinect conectada y abierta\n";
         }
     }
 
@@ -46,12 +46,12 @@ public class BodyTrackingDiagnostic : MonoBehaviour
         
         if (sensor == null)
         {
-            log += "❌ Sensor Kinect no encontrado\n";
+            log += "Sensor Kinect no encontrado\n";
         }
         else
         {
-            log += $"✅ Kinect: {sensor.UniqueKinectId}\n";
-            log += $"📊 Estado: {sensor.IsOpen} | Cuerpos máx: {sensor.BodyFrameSource.BodyCount}\n";
+            log += $"Kinect: {sensor.UniqueKinectId}\n";
+            log += $"Estado: {sensor.IsOpen} | Cuerpos máx: {sensor.BodyFrameSource.BodyCount}\n";
         }
 
         if (bodyManager != null)
@@ -59,7 +59,7 @@ public class BodyTrackingDiagnostic : MonoBehaviour
             Body[] bodies = bodyManager.GetData();
             if (bodies == null)
             {
-                log += "📭 bodies array es null\n";
+                log += "bodies array es null\n";
             }
             else
             {
@@ -69,19 +69,18 @@ public class BodyTrackingDiagnostic : MonoBehaviour
                     if (bodies[i] != null && bodies[i].IsTracked)
                     {
                         trackedBodies++;
-                        log += $"👤 Cuerpo {i} trackeado - ";
+                        log += $"Cuerpo {i} trackeado - ";
                         log += $"Mano: {bodies[i].HandRightState}\n";
                     }
                 }
                 
                 if (trackedBodies == 0)
                 {
-                    log += "👀 Esperando cuerpos... (párate frente al sensor)\n";
+                    log += "Esperando cuerpos... (párate frente al sensor)\n";
                 }
             }
         }
 
         diagnosticText.text = log;
-        Debug.Log(log);
     }
 }

@@ -29,7 +29,6 @@ public class KinectHandCursor : MonoBehaviour
     [Space(5)]
     public float grabDistance = 5f;
     public LayerMask instrumentLayer;
-    public float grabStickiness = 0.1f; // How sticky the grab is (0-1)
     [Space(15)]
     
     [Header("Screen Boundaries")]
@@ -44,7 +43,6 @@ public class KinectHandCursor : MonoBehaviour
     private GameObject _grabbedObject;
     private Vector3 _grabOffset;
     private bool _isGrabbing = false;
-    private float _grabStickinessTimer = 0f;
 
     private BodySourceManager _bodyManager;
     private KinectSensor _kinect;
@@ -55,7 +53,7 @@ public class KinectHandCursor : MonoBehaviour
         _bodyManager = BodySourceManager.instance;
         _kinect = KinectSensor.GetDefault();
         
-        UpdateDebugText("✅ System ready. Move your hands.");
+        UpdateDebugText("System ready. Move your hands.");
 
         if (sceneCamera == null)
             sceneCamera = Camera.main;
@@ -82,7 +80,7 @@ public class KinectHandCursor : MonoBehaviour
             }
         }
         
-        UpdateDebugText("👀 Please stand in front of Kinect sensor");
+        UpdateDebugText("Please stand in front of Kinect sensor");
     }
 
     private void MoveCursor(Body body)
@@ -100,7 +98,7 @@ public class KinectHandCursor : MonoBehaviour
             
             string handState = useRightHand ? body.HandRightState.ToString() : body.HandLeftState.ToString();
             string grabStatus = _isGrabbing ? $"Grabbing: {_grabbedObject.name}" : "Ready to grab";
-            UpdateDebugText($"✋ Hand: {handState} | {grabStatus} | Sens: {cursorSensitivity}");
+            UpdateDebugText($"Hand: {handState} | {grabStatus} | Sens: {cursorSensitivity}");
         }
     }
     
@@ -108,6 +106,7 @@ public class KinectHandCursor : MonoBehaviour
     {
         HandState currentHandState = useRightHand ? body.HandRightState : body.HandLeftState;
 
+        // Detect when hand CLOSES (grab)
         if (_previousHandState != HandState.Closed && currentHandState == HandState.Closed)
         {
             _handClosedThisFrame = true;
@@ -115,21 +114,10 @@ public class KinectHandCursor : MonoBehaviour
                 TryGrabInstrument();
         }
         
-        // Improved release detection with stickiness
+        // Detect when hand OPENS (release) - immediate release now
         if (_isGrabbing && _previousHandState == HandState.Closed && currentHandState != HandState.Closed)
         {
-            _grabStickinessTimer += Time.deltaTime;
-            
-            // Only release if hand stays open for a moment (stickiness)
-            if (_grabStickinessTimer > grabStickiness)
-            {
-                ReleaseInstrument();
-                _grabStickinessTimer = 0f;
-            }
-        }
-        else
-        {
-            _grabStickinessTimer = 0f;
+            ReleaseInstrument();
         }
 
         _previousHandState = currentHandState;
@@ -183,17 +171,16 @@ public class KinectHandCursor : MonoBehaviour
             0f
         );
         
-        Debug.Log($"🎻 Grabbed instrument: {instrument.name}");
+        Debug.Log($"Grabbed instrument: {instrument.name}");
     }
 
     private void ReleaseInstrument()
     {
         if (!_isGrabbing) return;
         
-        Debug.Log($"🎻 Released instrument: {_grabbedObject.name}");
+        Debug.Log($"Released instrument: {_grabbedObject.name}");
         _grabbedObject = null;
         _isGrabbing = false;
-        _grabStickinessTimer = 0f;
     }
 
     #endregion
@@ -208,21 +195,6 @@ public class KinectHandCursor : MonoBehaviour
                 cursor.position.y + _grabOffset.y,
                 _grabbedObject.transform.position.z
             );
-            
-            // Use DoTween-like smooth movement but keep it 1:1 with cursor
-            // This creates the "feeling" of direct control
-            _grabbedObject.transform.position = Vector3.Lerp(
-                _grabbedObject.transform.position, 
-                targetPosition, 
-                Time.deltaTime * 20f // Faster follow for 1:1 feeling
-            );
-            
-            // Update offset to maintain precise positioning
-            _grabOffset = new Vector3(
-                _grabbedObject.transform.position.x - cursor.position.x,
-                _grabbedObject.transform.position.y - cursor.position.y,
-                0f
-            );
         }
     }
     
@@ -234,20 +206,6 @@ public class KinectHandCursor : MonoBehaviour
         if (image != null)
         {
             image.sprite = _isGrabbing ? handSprites[1] : handSprites[0];
-            
-            // Visual feedback for grab stickiness
-            if (_grabStickinessTimer > 0f)
-            {
-                Color color = image.color;
-                color.a = 0.7f + 0.3f * Mathf.Sin(_grabStickinessTimer * 10f);
-                image.color = color;
-            }
-            else
-            {
-                Color color = image.color;
-                color.a = 1f;
-                image.color = color;
-            }
         }
     }
     
@@ -325,7 +283,6 @@ public class KinectHandCursor : MonoBehaviour
     private void UpdateDebugText(string message)
     {
         if (debugText != null) debugText.text = message;
-        Debug.Log(message);
     }
     
     void OnDrawGizmos()
