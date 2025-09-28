@@ -1,9 +1,12 @@
+using System;
 using UnityEngine;
 using System.Collections;
 using Windows.Kinect;
 
 public class BodySourceManager : MonoBehaviour 
 {
+    public static BodySourceManager instance;
+    
     private KinectSensor _Sensor;
     private BodyFrameReader _Reader;
     private Body[] _Data = null;
@@ -15,6 +18,14 @@ public class BodySourceManager : MonoBehaviour
     
     public bool IsInitialized { get; private set; }
     public System.Action<bool> OnBodyDataUpdated;
+
+    private void Awake()
+    {
+        if (instance == null)
+            instance = this;
+        else
+            Destroy(gameObject);        
+    }
 
     void Start () 
     {

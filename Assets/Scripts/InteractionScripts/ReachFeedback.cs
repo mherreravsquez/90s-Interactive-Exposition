@@ -1,17 +1,14 @@
-using System;
-using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class ReachFeedback : MonoBehaviour
 {
-    public List<AudioSource> instruments = new List<AudioSource>();
+    public AudioSource instrumentOnReach;
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Instrument"))
         {
-            instruments.Add(other.gameObject.GetComponent<AudioSource>());
+            instrumentOnReach = other.gameObject.GetComponent<AudioSource>();
             
             Debug.Log(other.name + " is in trigger");
             
@@ -22,7 +19,7 @@ public class ReachFeedback : MonoBehaviour
     {
         if (other.CompareTag("Instrument"))
         {
-            instruments.Remove(other.gameObject.GetComponent<AudioSource>());
+            instrumentOnReach = other.gameObject.GetComponent<AudioSource>();
         }
     }
 }
