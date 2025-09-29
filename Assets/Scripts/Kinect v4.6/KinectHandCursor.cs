@@ -10,7 +10,6 @@ public class KinectHandCursor : MonoBehaviour
     [Space(5)]
     public bool useRightHand = true;
     public float smoothFactor = 10f;
-    public float cursorSensitivity = 2.0f; // New sensitivity parameter
     [Space(15)]
     
     [Header("References")]
@@ -35,7 +34,7 @@ public class KinectHandCursor : MonoBehaviour
     
     [Header("Screen Boundaries")]
     [Space(5)]
-    public float borderMargin = 0.02f; // Reduced margin for less obstruction
+    public float borderMargin = 0.02f;
     
     // Hand state tracking
     private HandState _previousHandState = HandState.Unknown;
@@ -100,7 +99,7 @@ public class KinectHandCursor : MonoBehaviour
             
             string handState = useRightHand ? body.HandRightState.ToString() : body.HandLeftState.ToString();
             string grabStatus = _isGrabbing ? $"Grabbing: {_grabbedObject.name}" : "Ready to grab";
-            UpdateDebugText($"Hand: {handState} | {grabStatus} | Sens: {cursorSensitivity}");
+            UpdateDebugText($"Hand: {handState} | {grabStatus}");
         }
     }
     
@@ -116,7 +115,7 @@ public class KinectHandCursor : MonoBehaviour
                 TryGrabInstrument();
         }
         
-        // Detect when hand OPENS (release) - immediate release now
+        // Detect when hand OPENS (release)
         if (_isGrabbing && _previousHandState == HandState.Closed && currentHandState != HandState.Closed)
         {
             ReleaseInstrument();
@@ -195,7 +194,7 @@ public class KinectHandCursor : MonoBehaviour
     {
         if (_isGrabbing && _grabbedObject != null)
         {
-            // Move instrument at the same rate as cursor (1:1 movement)
+            // Move instrument
             Vector3 targetPosition = new Vector3(
                 cursor.position.x + _grabOffset.x,
                 cursor.position.y + _grabOffset.y,
@@ -223,7 +222,7 @@ public class KinectHandCursor : MonoBehaviour
         {
             ColorSpacePoint colorPoint = _kinect.CoordinateMapper.MapCameraPointToColorSpace(position3D);
             
-            // Square resolution handling (1:1 aspect ratio)
+            // Square resolution
             float squareSize = Mathf.Min(Screen.width, Screen.height);
             float xOffset = (Screen.width - squareSize) / 2f;
             float yOffset = (Screen.height - squareSize) / 2f;
@@ -248,7 +247,7 @@ public class KinectHandCursor : MonoBehaviour
     {
         if (cursor == null || sceneCamera == null) return;
 
-        // Clamp screen position to camera viewport with minimal obstruction
+        // Clamp screen position to camera viewport
         Vector2 clampedScreenPosition = ClampToCameraViewport(screenPosition);
 
         // For square resolution, ensure cursor stays in visible area
@@ -278,7 +277,6 @@ public class KinectHandCursor : MonoBehaviour
             new Vector3(screenPosition.x, screenPosition.y, 0f)
         );
 
-        // Use minimal margin for less obstruction
         viewportPoint.x = Mathf.Clamp(viewportPoint.x, borderMargin, 1f - borderMargin);
         viewportPoint.y = Mathf.Clamp(viewportPoint.y, borderMargin, 1f - borderMargin);
 
