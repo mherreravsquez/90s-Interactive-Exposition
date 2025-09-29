@@ -460,10 +460,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::KinectHandCursor
   useRightHand: 1
   smoothFactor: 10
-  cursorSensitivity: 2
   cursor: {fileID: 172639102}
   sceneCamera: {fileID: 179577171}
   debugText: {fileID: 586543298}
+  grabbedInstrument: {fileID: 0}
   handSprites:
   - {fileID: 593527444, guid: 07190cdcb3bc09546943924fad0a0a07, type: 3}
   - {fileID: -2101497583, guid: 07190cdcb3bc09546943924fad0a0a07, type: 3}
@@ -471,7 +471,6 @@ MonoBehaviour:
   instrumentLayer:
     serializedVersion: 2
     m_Bits: 8
-  grabStickiness: 0.1
   borderMargin: 0.02
 --- !u!1 &179577169
 GameObject:
@@ -994,7 +993,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &657842760
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1653,6 +1652,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ReachFeedback
   instrumentOnReach: {fileID: 0}
+  reachPivot: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

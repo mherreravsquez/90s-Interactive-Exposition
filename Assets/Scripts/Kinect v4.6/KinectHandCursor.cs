@@ -18,7 +18,7 @@ public class KinectHandCursor : MonoBehaviour
     public Camera sceneCamera;
     public TextMeshProUGUI debugText;
     [Space(5)]
-    public InstrumentData grabbedInstrument;
+    public GameObject grabbedInstrument;
     [Space(15)]
     
     [Header("Hand Sprites")]
@@ -130,32 +130,24 @@ public class KinectHandCursor : MonoBehaviour
     {
         if (_isGrabbing) return;
 
-        Vector3 rayOrigin = cursor.position;
+        Vector3 cursorWorldPos = cursor.position;
         Vector3 rayDirection = sceneCamera.transform.forward;
 
-        RaycastHit hit;
-        Debug.DrawRay(rayOrigin, rayDirection * grabDistance, Color.red, 2f);
+        RaycastHit[] hits = Physics.SphereCastAll(
+            cursorWorldPos, 
+            0.3f, // Radio mayor para mejor detección
+            rayDirection, 
+            grabDistance, 
+            instrumentLayer
+        );
 
-        if (Physics.Raycast(rayOrigin, rayDirection, out hit, grabDistance, instrumentLayer))
+        foreach (RaycastHit hit in hits)
         {
             if (hit.collider.CompareTag("Instrument"))
             {
-                grabbedInstrument = hit.collider.GetComponent<Instrument>().instrumentData;
+                grabbedInstrument = hit.collider.gameObject;
                 GrabInstrument(hit.collider.gameObject, hit.point);
-            }
-        }
-        else
-        {
-            // Alternative: Try sphere cast for better detection
-            RaycastHit[] hits = Physics.SphereCastAll(rayOrigin, 0.5f, rayDirection, grabDistance, instrumentLayer);
-            foreach (RaycastHit sphereHit in hits)
-            {
-                if (sphereHit.collider.CompareTag("Instrument"))
-                {
-                    grabbedInstrument = hit.collider.GetComponent<Instrument>().instrumentData;
-                    GrabInstrument(sphereHit.collider.gameObject, sphereHit.point);
-                    break;
-                }
+                break;
             }
         }
     }
@@ -174,14 +166,14 @@ public class KinectHandCursor : MonoBehaviour
             0f
         );
         
-        Debug.Log($"Grabbed instrument: {instrument.name}");
+        // Debug.Log($"Grabbed instrument: {instrument.name}");
     }
 
     private void ReleaseInstrument()
     {
         if (!_isGrabbing) return;
         
-        Debug.Log($"Released instrument: {_grabbedObject.name}");
+        // Debug.Log($"Released instrument: {_grabbedObject.name}");
         _grabbedObject = null;
         _isGrabbing = false;
 
@@ -194,12 +186,15 @@ public class KinectHandCursor : MonoBehaviour
     {
         if (_isGrabbing && _grabbedObject != null)
         {
-            // Move instrument
+            // Calculate the target position
             Vector3 targetPosition = new Vector3(
                 cursor.position.x + _grabOffset.x,
                 cursor.position.y + _grabOffset.y,
                 _grabbedObject.transform.position.z
             );
+            
+            // Move instrument
+            _grabbedObject.transform.position = targetPosition;
         }
     }
     

@@ -63,21 +63,6 @@ public class BodySourceManager : MonoBehaviour
         }
     }
     
-    void Update()
-    {
-        // Debug visual de los datos
-        if (_Data != null)
-        {
-            for (int i = 0; i < _Data.Length; i++)
-            {
-                if (_Data[i] != null && _Data[i].IsTracked)
-                {
-                    Debug.Log($"Cuerpo {i} trackeado - Mano derecha: {_Data[i].HandRightState}");
-                }
-            }
-        }
-    }
-    
     void OnApplicationQuit()
     {
         if (_Reader != null)
