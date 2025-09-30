@@ -12,7 +12,6 @@ public class ReaperOSCManager : MonoBehaviour
     void Start()
     {
         SetupOSC();
-        
         StopReaperPlayback();
     }
     
@@ -44,13 +43,25 @@ public class ReaperOSCManager : MonoBehaviour
         Debug.Log($"Enviando mute al track: {trackId}");
     }
     
+    public void MuteAllTracks()
+    {
+        if (client == null) return;
+        
+        // Mutear tracks del 0 al 9 (ajusta según tus necesidades)
+        for (int i = 0; i < 10; i++)
+        {
+            SendTrackMute(i);
+        }
+        
+        Debug.Log("Todos los tracks han sido muteados");
+    }
+    
     public void StartReaperPlayback()
     {
         if (client == null) return;
         
         if (!isReaperPlaying)
         {
-            // Comando para iniciar reproducción en REAPER
             client.Send("/play", 1);
             isReaperPlaying = true;
             Debug.Log("Iniciando reproducción en REAPER");
@@ -63,14 +74,25 @@ public class ReaperOSCManager : MonoBehaviour
         
         if (isReaperPlaying)
         {
-            // Comando para detener reproducción en REAPER
             client.Send("/stop", 1);
             isReaperPlaying = false;
             Debug.Log("Deteniendo reproducción en REAPER");
-            
-            // Opcional: Reiniciar posición de reproducción
             client.Send("/rewind", 1);
         }
+    }
+    
+    // Método para acciones especiales en REAPER
+    public void SendSpecialAction()
+    {
+        if (client == null) return;
+        
+        // EJEMPLO: Cambiar a un patrón especial o efecto
+        // client.Send("/special/pattern", 1);
+        
+        // EJEMPLO: Activar filtro especial
+        // client.Send("/filter/lowpass", 500); // Frecuencia de corte
+        
+        Debug.Log("Enviando acción especial a REAPER");
     }
     
     public void ToggleReaperPlayback()
@@ -86,12 +108,7 @@ public class ReaperOSCManager : MonoBehaviour
     {
         Debug.Log("Cerrando aplicación - Deteniendo REAPER");
         StopReaperPlayback();
-        
-        // Mutear todos los tracks por seguridad
-        for (int i = 0; i < 10; i++) // Ajusta el rango según tus tracks
-        {
-            SendTrackMute(i);
-        }
+        MuteAllTracks();
         
         if (client != null)
             client.Dispose();
