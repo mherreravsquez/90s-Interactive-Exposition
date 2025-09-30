@@ -7,10 +7,13 @@ public class ReaperOSCManager : MonoBehaviour
     public int reaperPort = 8888;
     
     private OscClient client;
+    private bool isReaperPlaying = false;
     
     void Start()
     {
         SetupOSC();
+        
+        StopReaperPlayback();
     }
     
     public void SetupOSC()
@@ -29,17 +32,7 @@ public class ReaperOSCManager : MonoBehaviour
     {
         if (client == null) return;
         
-        // FORMATOS ALTERNATIVOS PARA PROBAR:
-        
-        // Opción 1: Formato estándar de REAPER
         client.Send($"/track/{trackId}/mute", 0);
-        
-        // Opción 2: Con dirección completa
-        // client.Send($"/action/{trackId}/unmute", 1);
-        
-        // Opción 3: Usando el sistema de acciones de REAPER
-        // client.Send($"/action/40743", 1); // 40743 es el ID para "Track: Unmute tracks"
-        
         Debug.Log($"Enviando unmute al track: {trackId}");
     }
     
@@ -51,15 +44,76 @@ public class ReaperOSCManager : MonoBehaviour
         Debug.Log($"Enviando mute al track: {trackId}");
     }
     
+    public void StartReaperPlayback()
+    {
+        if (client == null) return;
+        
+        if (!isReaperPlaying)
+        {
+            // Comando para iniciar reproducción en REAPER
+            client.Send("/play", 1);
+            isReaperPlaying = true;
+            Debug.Log("Iniciando reproducción en REAPER");
+        }
+    }
+    
+    public void StopReaperPlayback()
+    {
+        if (client == null) return;
+        
+        if (isReaperPlaying)
+        {
+            // Comando para detener reproducción en REAPER
+            client.Send("/stop", 1);
+            isReaperPlaying = false;
+            Debug.Log("Deteniendo reproducción en REAPER");
+            
+            // Opcional: Reiniciar posición de reproducción
+            client.Send("/rewind", 1);
+        }
+    }
+    
+    public void ToggleReaperPlayback()
+    {
+        if (client == null) return;
+        
+        client.Send("/play", isReaperPlaying ? 0 : 1);
+        isReaperPlaying = !isReaperPlaying;
+        Debug.Log($"Alternando reproducción: {isReaperPlaying}");
+    }
+    
     void OnApplicationQuit()
     {
+        Debug.Log("Cerrando aplicación - Deteniendo REAPER");
+        StopReaperPlayback();
+        
+        // Mutear todos los tracks por seguridad
+        for (int i = 0; i < 10; i++) // Ajusta el rango según tus tracks
+        {
+            SendTrackMute(i);
+        }
+        
         if (client != null)
             client.Dispose();
     }
     
     void OnDestroy()
     {
+        Debug.Log("Destruyendo OSC Manager - Deteniendo REAPER");
+        StopReaperPlayback();
+        
         if (client != null)
             client.Dispose();
     }
+    
+    #if UNITY_EDITOR
+    void OnDisable()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.Log("Editor detenido - Deteniendo REAPER");
+            StopReaperPlayback();
+        }
+    }
+    #endif
 }

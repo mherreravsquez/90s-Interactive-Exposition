@@ -1,8 +1,12 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class BoomboxManager : MonoBehaviour
 {
     public ReaperOSCManager oscManager;
+    
+    // Lista para trackear instrumentos activos
+    private List<InstrumentData> activeInstruments = new List<InstrumentData>();
     
     void OnTriggerEnter(Collider other)
     {
@@ -26,12 +30,25 @@ public class BoomboxManager : MonoBehaviour
             }
 
             InstrumentData instrument = instrumentComponent.instrumentData;
-            Debug.Log($"Instrumento {instrument.instrumentType} soltado en el trigger");
+            
+            // Agregar a la lista de instrumentos activos
+            if (!activeInstruments.Contains(instrument))
+            {
+                activeInstruments.Add(instrument);
+            }
+            
+            Debug.Log($"Instrumento {instrument.instrumentType} soltado en el trigger. Instrumentos activos: {activeInstruments.Count}");
             
             // Enviar comando para desmutear el track en REAPER
             if (oscManager != null)
             {
                 oscManager.SendTrackUnmute(instrument.instrumentID);
+                
+                // Si es el primer instrumento, iniciar reproducción en REAPER
+                if (activeInstruments.Count == 1)
+                {
+                    oscManager.StartReaperPlayback();
+                }
                 
                 // Ocultar y preparar el instrumento
                 PrepareInstrumentForBoombox(other.gameObject);
@@ -39,6 +56,38 @@ public class BoomboxManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("OSC Manager no asignado en BoomboxManager");
+            }
+        }
+    }
+    
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Instrument"))
+        {
+            Instrument instrumentComponent = other.GetComponent<Instrument>();
+            if (instrumentComponent != null && instrumentComponent.instrumentData != null)
+            {
+                InstrumentData instrument = instrumentComponent.instrumentData;
+                
+                // Remover de la lista de instrumentos activos
+                if (activeInstruments.Contains(instrument))
+                {
+                    activeInstruments.Remove(instrument);
+                    
+                    // Mutear el track en REAPER
+                    if (oscManager != null)
+                    {
+                        oscManager.SendTrackMute(instrument.instrumentID);
+                    }
+                }
+                
+                Debug.Log($"Instrumento {instrument.instrumentType} salió del trigger. Instrumentos activos: {activeInstruments.Count}");
+                
+                // Si no hay instrumentos activos, detener REAPER
+                if (activeInstruments.Count == 0 && oscManager != null)
+                {
+                    oscManager.StopReaperPlayback();
+                }
             }
         }
     }
@@ -61,56 +110,21 @@ public class BoomboxManager : MonoBehaviour
         instrument.transform.SetParent(transform);
         instrument.transform.localPosition = Vector3.zero;
         instrument.transform.localRotation = Quaternion.identity;
-        
-        // Opcional: desactivar scripts de interacción del instrumento
-        KinectHandCursor grabController = instrument.GetComponent<KinectHandCursor>();
-        if (grabController != null)
-            grabController.enabled = false;
-            
-        ReachFeedback reachFeedback = instrument.GetComponent<ReachFeedback>();
-        if (reachFeedback != null)
-            reachFeedback.enabled = false;
     }
     
-    // Método opcional para reactivar instrumento si se necesita sacar de la boombox
-    // public void ReleaseInstrument(GameObject instrument)
-    // {
-    //     if (instrument.transform.parent == transform)
-    //     {
-    //         instrument.transform.SetParent(null);
-    //         
-    //         // Reactivar componentes
-    //         MeshRenderer renderer = instrument.GetComponent<MeshRenderer>();
-    //         if (renderer != null)
-    //             renderer.enabled = true;
-    //             
-    //         Collider[] colliders = instrument.GetComponents<Collider>();
-    //         foreach (Collider collider in colliders)
-    //         {
-    //             collider.enabled = true;
-    //         }
-    //         
-    //         AudioSource audioSource = instrument.GetComponent<AudioSource>();
-    //         if (audioSource != null)
-    //         {
-    //             audioSource.enabled = true;
-    //         }
-    //         
-    //         // Reactivar scripts
-    //         KinectHandCursor grabController = instrument.GetComponent<KinectHandCursor>();
-    //         if (grabController != null)
-    //             grabController.enabled = true;
-    //             
-    //         ReachFeedback reachFeedback = instrument.GetComponent<ReachFeedback>();
-    //         if (reachFeedback != null)
-    //             reachFeedback.enabled = true;
-    //             
-    //         // Mutar el track en REAPER
-    //         Instrument instrumentComponent = instrument.GetComponent<Instrument>();
-    //         if (instrumentComponent != null && instrumentComponent.instrumentData != null && oscManager != null)
-    //         {
-    //             oscManager.SendTrackMute(instrumentComponent.instrumentData.instrumentID);
-    //         }
-    //     }
-    // }
+    // Método para obtener la cantidad de instrumentos activos
+    public int GetActiveInstrumentCount()
+    {
+        return activeInstruments.Count;
+    }
+    
+    // Método para limpiar cuando se desactiva el objeto
+    private void OnDisable()
+    {
+        // Si la boombox se desactiva, detener REAPER
+        if (oscManager != null && activeInstruments.Count > 0)
+        {
+            oscManager.StopReaperPlayback();
+        }
+    }
 }
