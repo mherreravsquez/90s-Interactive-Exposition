@@ -4,7 +4,7 @@ using OscJack;
 public class ReaperOSCManager : MonoBehaviour
 {
     [Tooltip("Port number for OSC communication with Reaper")]
-    public int reaperPort = 8888; // Puerto debe coincidir con la configuración de REAPER
+    public int reaperPort = 8888;
     
     private OscClient client;
     
@@ -15,16 +15,13 @@ public class ReaperOSCManager : MonoBehaviour
     
     public void SetupOSC()
     {
-        // Cerrar cliente existente si hay uno
         if (client != null)
         {
             client.Dispose();
             client = null;
         }
         
-        // Usar dirección de loopback (127.0.0.1) para comunicación local
         client = new OscClient("127.0.0.1", reaperPort);
-        
         Debug.Log($"Conectado a REAPER en localhost:{reaperPort}");
     }
     
@@ -32,8 +29,18 @@ public class ReaperOSCManager : MonoBehaviour
     {
         if (client == null) return;
         
-        client.Send($"/track/{trackId}/unmute", 1);
-        Debug.Log($"Enviando comando para desmutear track: {trackId}");
+        // FORMATOS ALTERNATIVOS PARA PROBAR:
+        
+        // Opción 1: Formato estándar de REAPER
+        client.Send($"/track/{trackId}/mute", 0);
+        
+        // Opción 2: Con dirección completa
+        // client.Send($"/action/{trackId}/unmute", 1);
+        
+        // Opción 3: Usando el sistema de acciones de REAPER
+        // client.Send($"/action/40743", 1); // 40743 es el ID para "Track: Unmute tracks"
+        
+        Debug.Log($"Enviando unmute al track: {trackId}");
     }
     
     public void SendTrackMute(int trackId)
@@ -41,7 +48,7 @@ public class ReaperOSCManager : MonoBehaviour
         if (client == null) return;
         
         client.Send($"/track/{trackId}/mute", 1);
-        Debug.Log($"Enviando comando para mutear track: {trackId}");
+        Debug.Log($"Enviando mute al track: {trackId}");
     }
     
     void OnApplicationQuit()

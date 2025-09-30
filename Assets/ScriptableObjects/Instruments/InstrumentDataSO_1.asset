@@ -15,4 +15,4 @@ MonoBehaviour:
   instrumentID: 1
   song: MariposaTecknicolor
   instrumentType: 0
-  previewClip: {fileID: 0}
+  previewClip: {fileID: 8300000, guid: b30719cb8e99f3f4e96588015aa2842f, type: 3}
