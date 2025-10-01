@@ -1406,7 +1406,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 10.8, y: 10.8, z: 13.852855}
+  m_Size: {x: 59, y: 29, z: 1}
   m_Center: {x: 0, y: 0, z: -6.4264274}
 --- !u!4 &1451806728
 Transform:
@@ -1418,8 +1418,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: -8.41, z: 6.35}
-  m_LocalScale: {x: 0.495, y: 0.243, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.075, y: 0.075, z: 0.075}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 510889040}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1512,7 +1512,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 9ac77a8bcde3a4440bf21e8f8c36e312, type: 3}
+  m_Sprite: {fileID: 21300000, guid: b34b07294cf24a6438c46b4355169c4d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
