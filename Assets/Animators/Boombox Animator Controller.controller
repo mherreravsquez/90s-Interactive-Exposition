@@ -36,7 +36,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: IntrumentCount
+    m_ConditionEvent: InstrumentCount
     m_EventTreshold: 3
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 1818510670134693015}
@@ -61,7 +61,7 @@ AnimatorController:
   m_Name: Boombox Animator Controller
   serializedVersion: 5
   m_AnimatorParameters:
-  - m_Name: IntrumentCount
+  - m_Name: InstrumentCount
     m_Type: 3
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -95,7 +95,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: IntrumentCount
+    m_ConditionEvent: InstrumentCount
     m_EventTreshold: 2
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 6232318058931254123}
@@ -282,7 +282,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: IntrumentCount
+    m_ConditionEvent: InstrumentCount
     m_EventTreshold: 1
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 6896180033007822977}
