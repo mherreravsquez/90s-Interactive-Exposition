@@ -10,20 +10,25 @@ public class BoomboxManager : MonoBehaviour
     public Collider spreadArea;
     public float resetDelay = 2f;
     
+    [Header("Instrument Prefabs")]
+    public List<GameObject> instrumentPrefabs; // Prefabs de instrumentos disponibles
+    public int initialInstrumentCount = 5; // Cuántos instrumentos instanciar al inicio
+    
     [Header("Animation")]
     public Animator boomboxAnimator;
     public string animationStateParameter = "InstrumentCount";
     public string specialEffectTrigger = "SpecialEffect";
     
-    // Lista para trackear instrumentos activos
-    private List<InstrumentData> activeInstruments = new List<InstrumentData>();
-    private List<GameObject> allInstrumentsInScene = new List<GameObject>();
+    // Listas para trackear instrumentos
+    [SerializeField] List<InstrumentData> activeInstruments = new List<InstrumentData>();
+    [SerializeField] List<GameObject> spawnedInstruments = new List<GameObject>(); // Instrumentos instanciados
     private bool isLimitReached = false;
     private bool isInSpecialEffect = false;
     
     void Start()
     {
-        FindAllInstruments();
+        // Instanciar instrumentos al inicio
+        SpawnInitialInstruments();
         
         // Inicializar animación
         if (boomboxAnimator != null)
@@ -32,10 +37,70 @@ public class BoomboxManager : MonoBehaviour
         }
     }
     
+    private void SpawnInitialInstruments()
+    {
+        // Limpiar lista por si acaso
+        spawnedInstruments.Clear();
+        
+        if (instrumentPrefabs == null || instrumentPrefabs.Count == 0)
+        {
+            Debug.LogError("No hay prefabs de instrumentos asignados en BoomboxManager");
+            return;
+        }
+        
+        if (spreadArea == null)
+        {
+            Debug.LogError("No hay área de esparcido asignada para colocar instrumentos");
+            return;
+        }
+        
+        // Instanciar la cantidad inicial de instrumentos
+        for (int i = 0; i < initialInstrumentCount; i++)
+        {
+            SpawnRandomInstrument();
+        }
+        
+        Debug.Log($"Se instanciaron {spawnedInstruments.Count} instrumentos iniciales");
+    }
+    
+    private void SpawnRandomInstrument()
+    {
+        if (instrumentPrefabs.Count == 0) return;
+        
+        // Elegir un prefab aleatorio
+        int randomIndex = Random.Range(0, instrumentPrefabs.Count);
+        GameObject instrumentPrefab = instrumentPrefabs[randomIndex];
+        
+        // Instanciar el instrumento
+        GameObject newInstrument = Instantiate(instrumentPrefab);
+        
+        // Posicionar en un lugar aleatorio del área
+        Vector3 randomPosition = GetRandomPositionInArea();
+        newInstrument.transform.position = randomPosition;
+        
+        // Rotación aleatoria
+        newInstrument.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+        
+        // Asegurarse de que tenga el tag correcto
+        newInstrument.tag = "Instrument";
+        
+        // Agregar a la lista de instrumentos instanciados
+        spawnedInstruments.Add(newInstrument);
+        
+        Debug.Log($"Instanciado instrumento: {newInstrument.name} en posición {randomPosition}");
+    }
+    
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Instrument") && !isLimitReached && !isInSpecialEffect)
         {
+            // Verificar que el instrumento sea uno de los instanciados
+            if (!spawnedInstruments.Contains(other.gameObject))
+            {
+                Debug.LogWarning($"Instrumento {other.name} no está en la lista de instrumentos instanciados");
+                return;
+            }
+            
             Instrument instrumentComponent = other.GetComponent<Instrument>();
             
             if (instrumentComponent == null || instrumentComponent.instrumentData == null)
@@ -185,6 +250,8 @@ public class BoomboxManager : MonoBehaviour
     
     private void ReactivateAndSpreadInstruments()
     {
+        Debug.Log($"Reactivando instrumentos para esparcido...");
+        
         // Reactivar todos los instrumentos que están en la boombox
         foreach (Transform child in transform)
         {
@@ -199,6 +266,8 @@ public class BoomboxManager : MonoBehaviour
     
     private void ReactivateInstrument(GameObject instrument)
     {
+        if (instrument == null) return;
+        
         // Remover de la jerarquía de la boombox
         instrument.transform.SetParent(null);
         
@@ -225,6 +294,8 @@ public class BoomboxManager : MonoBehaviour
         {
             instrumentComp.isInBoombox = false;
         }
+        
+        Debug.Log($"Instrumento {instrument.name} reactivado");
     }
     
     private void SpreadAllInstruments()
@@ -235,16 +306,22 @@ public class BoomboxManager : MonoBehaviour
             return;
         }
         
-        FindAllInstruments();
+        Debug.Log($"Esparciendo {spawnedInstruments.Count} instrumentos instanciados");
         
-        foreach (GameObject instrument in allInstrumentsInScene)
+        // Esparcir todos los instrumentos instanciados
+        foreach (GameObject instrument in spawnedInstruments)
         {
-            Vector3 randomPosition = GetRandomPositionInArea();
-            instrument.transform.position = randomPosition;
-            instrument.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+            if (instrument != null)
+            {
+                Vector3 randomPosition = GetRandomPositionInArea();
+                instrument.transform.position = randomPosition;
+                instrument.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+                
+                Debug.Log($"Instrumento {instrument.name} movido a {randomPosition}");
+            }
         }
         
-        Debug.Log($"Se esparcieron {allInstrumentsInScene.Count} instrumentos");
+        Debug.Log($"Se esparcieron {spawnedInstruments.Count} instrumentos");
     }
     
     private Vector3 GetRandomPositionInArea()
@@ -262,15 +339,10 @@ public class BoomboxManager : MonoBehaviour
         return randomPosition;
     }
     
-    private void FindAllInstruments()
-    {
-        allInstrumentsInScene.Clear();
-        GameObject[] instrumentObjects = GameObject.FindGameObjectsWithTag("Instrument");
-        allInstrumentsInScene.AddRange(instrumentObjects);
-    }
-    
     private void PrepareInstrumentForBoombox(GameObject instrument)
     {
+        if (instrument == null) return;
+        
         // Desactivar el renderizado
         MeshRenderer renderer = instrument.GetComponent<MeshRenderer>();
         if (renderer != null)
@@ -287,11 +359,47 @@ public class BoomboxManager : MonoBehaviour
         instrument.transform.SetParent(transform);
         instrument.transform.localPosition = Vector3.zero;
         instrument.transform.localRotation = Quaternion.identity;
+        
+        Debug.Log($"Instrumento {instrument.name} preparado para boombox");
+    }
+    
+    // Método para agregar más instrumentos dinámicamente si es necesario
+    public void AddMoreInstruments(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            SpawnRandomInstrument();
+        }
+        Debug.Log($"Se agregaron {count} instrumentos nuevos");
+    }
+    
+    // Método para limpiar y reiniciar todos los instrumentos
+    public void ResetAllInstruments()
+    {
+        // Destruir todos los instrumentos instanciados
+        foreach (GameObject instrument in spawnedInstruments)
+        {
+            if (instrument != null)
+            {
+                Destroy(instrument);
+            }
+        }
+        spawnedInstruments.Clear();
+        
+        // Instanciar nuevos instrumentos
+        SpawnInitialInstruments();
+        
+        Debug.Log("Todos los instrumentos han sido reiniciados");
     }
     
     public int GetActiveInstrumentCount()
     {
         return activeInstruments.Count;
+    }
+    
+    public int GetTotalInstrumentCount()
+    {
+        return spawnedInstruments.Count;
     }
     
     public void ForceReset()
