@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
+using Unity.VisualScripting;
 
 public class BoomboxManager : MonoBehaviour
 {
@@ -12,7 +13,8 @@ public class BoomboxManager : MonoBehaviour
     
     [Header("Instrument Prefabs")]
     public List<GameObject> instrumentPrefabs; // Prefabs de instrumentos disponibles
-    public int initialInstrumentCount = 5; // Cuántos instrumentos instanciar al inicio
+    public int initialInstrumentCount; // Cuántos instrumentos instanciar al inicio
+    public Transform instrumentsParent;
     
     [Header("Animation")]
     public Animator boomboxAnimator;
@@ -28,7 +30,7 @@ public class BoomboxManager : MonoBehaviour
     void Start()
     {
         // Instanciar instrumentos al inicio
-        SpawnInitialInstruments();
+        ClearForInstruments();
         
         // Inicializar animación
         if (boomboxAnimator != null)
@@ -37,7 +39,7 @@ public class BoomboxManager : MonoBehaviour
         }
     }
     
-    private void SpawnInitialInstruments()
+    private void ClearForInstruments()
     {
         // Limpiar lista por si acaso
         spawnedInstruments.Clear();
@@ -73,19 +75,40 @@ public class BoomboxManager : MonoBehaviour
         
         // Instanciar el instrumento
         GameObject newInstrument = Instantiate(instrumentPrefab);
+        InstrumentData newData = newInstrument.GetComponent<Instrument>().instrumentData;
         
         // Posicionar en un lugar aleatorio del área
         Vector3 randomPosition = GetRandomPositionInArea();
         newInstrument.transform.position = randomPosition;
         
-        // Rotación aleatoria
-        newInstrument.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
-        
-        // Asegurarse de que tenga el tag correcto
+        // Asegurarse de que tenga el tag correcto                                               
         newInstrument.tag = "Instrument";
+
+        newInstrument.transform.SetParent(instrumentsParent, true);
         
         // Agregar a la lista de instrumentos instanciados
         spawnedInstruments.Add(newInstrument);
+
+        for (int i = spawnedInstruments.Count - 1; i >= 0; i--)
+        {
+            GameObject instrumentOnList = spawnedInstruments[i];
+
+            if (instrumentOnList == null) continue;
+
+            Instrument existingInstrument = instrumentOnList.GetComponent<Instrument>();
+
+            if (existingInstrument != null && existingInstrument.instrumentData != null)
+            {
+                if (newData == existingInstrument.instrumentData)
+                {
+                    // REVISAR, DESTRUIR SOLO INSTRUMENTS CLONADOS
+
+                    //Destroy(newInstrument);
+                    //spawnedInstruments.Remove(newInstrument);
+                }
+                
+            }
+        }
         
         Debug.Log($"Instanciado instrumento: {newInstrument.name} en posición {randomPosition}");
     }
@@ -218,7 +241,15 @@ public class BoomboxManager : MonoBehaviour
             oscManager.MuteAllTracks();
         }
         
-        ReactivateAndSpreadInstruments();
+        // ReactivateAndSpreadInstruments();
+
+        foreach (InstrumentData data in activeInstruments)
+        {
+            GameObject obj = data.GetComponent<Transform>().gameObject;
+            Destroy(obj);
+        }
+
+        ClearForInstruments();
         
         activeInstruments.Clear();
         isLimitReached = false;
@@ -248,55 +279,55 @@ public class BoomboxManager : MonoBehaviour
         }
     }
     
-    private void ReactivateAndSpreadInstruments()
-    {
-        Debug.Log($"Reactivando instrumentos para esparcido...");
+    //private void ReactivateAndSpreadInstruments()
+    //{
+    //    Debug.Log($"Reactivando instrumentos para esparcido...");
         
-        // Reactivar todos los instrumentos que están en la boombox
-        foreach (Transform child in transform)
-        {
-            if (child.CompareTag("Instrument"))
-            {
-                ReactivateInstrument(child.gameObject);
-            }
-        }
+    //    // Reactivar todos los instrumentos que están en la boombox
+    //    foreach (Transform child in transform)
+    //    {
+    //        if (child.CompareTag("Instrument"))
+    //        {
+    //            ReactivateInstrument(child.gameObject);
+    //        }
+    //    }
         
-        SpreadAllInstruments();
-    }
+    //    SpreadAllInstruments();
+    //}
     
-    private void ReactivateInstrument(GameObject instrument)
-    {
-        if (instrument == null) return;
+    //private void ReactivateInstrument(GameObject instrument)
+    //{
+    //    if (instrument == null) return;
         
-        // Remover de la jerarquía de la boombox
-        instrument.transform.SetParent(null);
+    //    // Remover de la jerarquía de la boombox
+    //    instrument.transform.SetParent(null);
         
-        // Reactivar componentes
-        MeshRenderer renderer = instrument.GetComponent<MeshRenderer>();
-        if (renderer != null)
-            renderer.enabled = true;
+    //    // Reactivar componentes
+    //    MeshRenderer renderer = instrument.GetComponent<MeshRenderer>();
+    //    if (renderer != null)
+    //        renderer.enabled = true;
             
-        Collider[] colliders = instrument.GetComponents<Collider>();
-        foreach (Collider collider in colliders)
-        {
-            collider.enabled = true;
-        }
+    //    Collider[] colliders = instrument.GetComponents<Collider>();
+    //    foreach (Collider collider in colliders)
+    //    {
+    //        collider.enabled = true;
+    //    }
         
-        AudioSource audioSource = instrument.GetComponent<AudioSource>();
-        if (audioSource != null)
-        {
-            audioSource.enabled = true;
-        }
+    //    AudioSource audioSource = instrument.GetComponent<AudioSource>();
+    //    if (audioSource != null)
+    //    {
+    //        audioSource.enabled = true;
+    //    }
         
-        // Marcar como interactuable nuevamente
-        Instrument instrumentComp = instrument.GetComponent<Instrument>();
-        if (instrumentComp != null)
-        {
-            instrumentComp.isInBoombox = false;
-        }
+    //    // Marcar como interactuable nuevamente
+    //    Instrument instrumentComp = instrument.GetComponent<Instrument>();
+    //    if (instrumentComp != null)
+    //    {
+    //        instrumentComp.isInBoombox = false;
+    //    }
         
-        Debug.Log($"Instrumento {instrument.name} reactivado");
-    }
+    //    Debug.Log($"Instrumento {instrument.name} reactivado");
+    //}
     
     private void SpreadAllInstruments()
     {
@@ -387,7 +418,7 @@ public class BoomboxManager : MonoBehaviour
         spawnedInstruments.Clear();
         
         // Instanciar nuevos instrumentos
-        SpawnInitialInstruments();
+        ClearForInstruments();
         
         Debug.Log("Todos los instrumentos han sido reiniciados");
     }
