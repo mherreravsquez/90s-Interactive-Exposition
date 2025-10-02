@@ -30,3 +30,10 @@ Additionally, MadMapper is implemented to perform projection mapping on the boom
 * Computer running Windows 10 or higher
 
 * ASIO-compatible sound card
+
+## How setup
+1. Install Kinect SDK 2.0, Madmapper, and Reaper
+2. Open Reaper and setup an OSC connection mode Local with port 8888
+3. Open unity project
+4. Open Madmapper and add NDI receiver and setup an output of 1920x1920
+
