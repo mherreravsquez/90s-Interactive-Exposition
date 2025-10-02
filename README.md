@@ -6,9 +6,7 @@ Additionally, MadMapper is implemented to perform projection mapping on the boom
 
 ## Physical Installation Components
 * Kinect v2 Sensor - For hand and gesture tracking
-
 * Projector - For viewing mapped projections
-
 * Boombox Mockup - Physical structure that serves as the main interface
 
 ![Concept of the pshysical installation](/Assets/Sprites/Concept.png)
@@ -17,18 +15,13 @@ Additionally, MadMapper is implemented to perform projection mapping on the boom
 
 ### Required Software
 * Kinect SDK 2.0 - Download here
-
 * REAPER - Official Site
-
 * MadMapper - Official Site
 
 ### Required Hardware
 * Kinect for Windows v2
-
 * Projector with a minimum resolution of 1080p
-
 * Computer running Windows 10 or higher
-
 * ASIO-compatible sound card
 
 ## How setup
