@@ -1186,7 +1186,7 @@ MonoBehaviour:
   reachFeedback: {fileID: 657842764}
   instrumentLimit: 3
   spreadArea: {fileID: 1919923357}
-  resetDelay: 15
+  resetDelay: 10
   instrumentPrefabs:
   - {fileID: 332263197362178377, guid: ebda3b520481d0a45a4e407634705ec4, type: 3}
   - {fileID: 332263197362178377, guid: 8266c8be7b45e9346b06e336014bbabc, type: 3}
@@ -1201,12 +1201,13 @@ MonoBehaviour:
   - {fileID: 332263197362178377, guid: d93a208ebc6015047b413ba6c01a0510, type: 3}
   - {fileID: 332263197362178377, guid: d62804b7f814efa4a94d009259d55035, type: 3}
   initialInstrumentCount: 5
-  instrumentsParent: {fileID: 0}
+  instrumentsParent: {fileID: 1919923356}
   boomboxAnimator: {fileID: 1451806730}
   animationStateParameter: InstrumentCount
   specialEffectTrigger: SpecialEffect
   activeInstruments: []
   spawnedInstruments: []
+  usedInstrumentTypes: []
 --- !u!95 &1451806730
 Animator:
   serializedVersion: 7
