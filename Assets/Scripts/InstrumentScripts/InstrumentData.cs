@@ -3,8 +3,8 @@ using UnityEngine;
 public enum InstrumentType
 {
     Bass,
-    Guitar,
-    Other
+    Drums,
+    Instrumental
 }
 
 [CreateAssetMenu(fileName = "InstrumentDataSO", menuName = "ScriptableObjects/InstrumentData")]

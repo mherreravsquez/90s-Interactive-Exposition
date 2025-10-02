@@ -1186,12 +1186,21 @@ MonoBehaviour:
   reachFeedback: {fileID: 657842764}
   instrumentLimit: 3
   spreadArea: {fileID: 1919923357}
-  resetDelay: 2
+  resetDelay: 15
   instrumentPrefabs:
   - {fileID: 332263197362178377, guid: ebda3b520481d0a45a4e407634705ec4, type: 3}
-  - {fileID: 3867875595300301814, guid: 8da5208efc402694c8456abe5ed455f9, type: 3}
-  - {fileID: 940839680057239098, guid: 37dc6b85f04ce334b8fbc643e6ad3685, type: 3}
-  initialInstrumentCount: 3
+  - {fileID: 332263197362178377, guid: 8266c8be7b45e9346b06e336014bbabc, type: 3}
+  - {fileID: 332263197362178377, guid: 4fc398a214c8dcc43b0adbc33ec29f0f, type: 3}
+  - {fileID: 332263197362178377, guid: 64325513e3b551040a18385533db4e5d, type: 3}
+  - {fileID: 332263197362178377, guid: a8f896ecca815d4479ae5dc31bc0dee4, type: 3}
+  - {fileID: 332263197362178377, guid: 9af5799787346134d946bb95ffeeabc9, type: 3}
+  - {fileID: 332263197362178377, guid: 747b664ac3a822a40986bb70fd1b00ad, type: 3}
+  - {fileID: 332263197362178377, guid: 143aaa331319855478867d2ccdf25be2, type: 3}
+  - {fileID: 332263197362178377, guid: f6514ab0c7f4d0e4d94af20ee8126a68, type: 3}
+  - {fileID: 332263197362178377, guid: 2e16a4c7805398043bbe279fef721af1, type: 3}
+  - {fileID: 332263197362178377, guid: d93a208ebc6015047b413ba6c01a0510, type: 3}
+  - {fileID: 332263197362178377, guid: d62804b7f814efa4a94d009259d55035, type: 3}
+  initialInstrumentCount: 5
   instrumentsParent: {fileID: 0}
   boomboxAnimator: {fileID: 1451806730}
   animationStateParameter: InstrumentCount
