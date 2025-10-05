@@ -47,8 +47,8 @@ public class ReaperOSCManager : MonoBehaviour
     {
         if (client == null) return;
         
-        // Mutear tracks del 0 al 9 (ajusta según tus necesidades)
-        for (int i = 0; i < 10; i++)
+        // Mutear tracks del 1 al 12 (ajusta según tus necesidades)
+        for (int i = 0; i < 13; i++)
         {
             SendTrackMute(i);
         }
