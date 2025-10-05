@@ -52,6 +52,16 @@ public class KinectHandCursor : MonoBehaviour
     void Start()
     {
         _bodyManager = BodySourceManager.instance;
+        
+        if (_bodyManager != null)
+        {
+            // Suscribirse a eventos de cambio de estado de mano
+            if (useRightHand)
+                _bodyManager.OnRightHandStateChanged += OnHandStateChanged;
+            else
+                _bodyManager.OnLeftHandStateChanged += OnHandStateChanged;
+        }
+
         _kinect = KinectSensor.GetDefault();
         
         UpdateDebugText("System ready. Move your hands.");
@@ -62,26 +72,45 @@ public class KinectHandCursor : MonoBehaviour
 
     void Update()
     {
-        if (_bodyManager == null || _kinect == null || !_kinect.IsOpen) return;
-        
+        if (_bodyManager == null || !_bodyManager.IsSensorAvailable) 
+        {
+            UpdateDebugText("Kinect not available");
+            return;
+        }
+
         _handClosedThisFrame = false;
 
-        Body[] bodies = _bodyManager.GetData();
-        if (bodies == null) return;
-
-        foreach (Body body in bodies)
+        Body firstBody = _bodyManager.FirstTrackedBody;
+        if (firstBody != null)
         {
-            if (body != null && body.IsTracked)
-            {
-                MoveCursor(body);
-                DetectHandGestures(body);
-                UpdateGrabSystem();
-                UpdateCursorAppearance();
-                return;
-            }
+            MoveCursor(firstBody);
+            UpdateGrabSystem();
+            UpdateCursorAppearance();
+        }
+        else
+        {
+            UpdateDebugText("Please stand in front of Kinect sensor");
+        }
+    }
+
+    // Manejar cambios de estado de mano via eventos
+    private void OnHandStateChanged(HandState newState)
+    {
+        // Detect when hand CLOSES (grab)
+        if (_previousHandState != HandState.Closed && newState == HandState.Closed)
+        {
+            _handClosedThisFrame = true;
+            if (!_isGrabbing)
+                TryGrabInstrument();
         }
         
-        UpdateDebugText("Please stand in front of Kinect sensor");
+        // Detect when hand OPENS (release)
+        if (_isGrabbing && _previousHandState == HandState.Closed && newState != HandState.Closed)
+        {
+            ReleaseInstrument();
+        }
+
+        _previousHandState = newState;
     }
 
     private void MoveCursor(Body body)
@@ -102,27 +131,10 @@ public class KinectHandCursor : MonoBehaviour
             UpdateDebugText($"Hand: {handState} | {grabStatus}");
         }
     }
-    
-    private void DetectHandGestures(Body body)
-    {
-        HandState currentHandState = useRightHand ? body.HandRightState : body.HandLeftState;
 
-        // Detect when hand CLOSES (grab)
-        if (_previousHandState != HandState.Closed && currentHandState == HandState.Closed)
-        {
-            _handClosedThisFrame = true;
-            if (!_isGrabbing)
-                TryGrabInstrument();
-        }
-        
-        // Detect when hand OPENS (release)
-        if (_isGrabbing && _previousHandState == HandState.Closed && currentHandState != HandState.Closed)
-        {
-            ReleaseInstrument();
-        }
-
-        _previousHandState = currentHandState;
-    }
+    // El resto del código de KinectHandCursor se mantiene igual...
+    // [Mantener todas las demás funciones: TryGrabInstrument, GrabInstrument, ReleaseInstrument, 
+    // UpdateGrabSystem, ConvertToScreen, MoveCursorUI, etc.]
 
     #region Interactions
     
@@ -135,7 +147,7 @@ public class KinectHandCursor : MonoBehaviour
 
         RaycastHit[] hits = Physics.SphereCastAll(
             cursorWorldPos, 
-            0.3f, // Radio mayor para mejor detección
+            0.3f,
             rayDirection, 
             grabDistance, 
             instrumentLayer
@@ -157,7 +169,6 @@ public class KinectHandCursor : MonoBehaviour
         _grabbedObject = instrument;
         _isGrabbing = true;
         
-        // Calculate offset only in X and Y axes (ignore Z)
         Vector3 instrumentPosition = instrument.transform.position;
         Vector3 cursorPosition = cursor.position;
         _grabOffset = new Vector3(
@@ -165,18 +176,14 @@ public class KinectHandCursor : MonoBehaviour
             instrumentPosition.y - cursorPosition.y,
             0f
         );
-        
-        // Debug.Log($"Grabbed instrument: {instrument.name}");
     }
 
     private void ReleaseInstrument()
     {
         if (!_isGrabbing) return;
         
-        // Debug.Log($"Released instrument: {_grabbedObject.name}");
         _grabbedObject = null;
         _isGrabbing = false;
-
         grabbedInstrument = null;
     }
 
@@ -186,14 +193,12 @@ public class KinectHandCursor : MonoBehaviour
     {
         if (_isGrabbing && _grabbedObject != null)
         {
-            // Calculate the target position
             Vector3 targetPosition = new Vector3(
                 cursor.position.x + _grabOffset.x,
                 cursor.position.y + _grabOffset.y,
                 _grabbedObject.transform.position.z
             );
             
-            // Move instrument
             _grabbedObject.transform.position = targetPosition;
         }
     }
@@ -323,6 +328,15 @@ public class KinectHandCursor : MonoBehaviour
 
     void OnDestroy()
     {
+        // Desuscribirse de eventos
+        if (_bodyManager != null)
+        {
+            if (useRightHand)
+                _bodyManager.OnRightHandStateChanged -= OnHandStateChanged;
+            else
+                _bodyManager.OnLeftHandStateChanged -= OnHandStateChanged;
+        }
+
         if (_kinect != null && _kinect.IsOpen)
         {
             _kinect.Close();
