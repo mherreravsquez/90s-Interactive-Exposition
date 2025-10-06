@@ -1,13 +1,17 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Windows.Kinect;
-using TMPro;
 using System.Collections.Generic;
-using Joint = Windows.Kinect.Joint;
 using System.Linq;
+using TMPro;
+using Windows.Kinect;
+using Joint = Windows.Kinect.Joint;
+using DG.Tweening;
 
 public class InteractionManager : MonoBehaviour
 {
+    [Header("Multiplayer?")]
+    public bool multiplayerEnabled;
+
     [Header("Camera Reference")]
     [SerializeField] private Camera orthoCamera;
     
@@ -22,12 +26,14 @@ public class InteractionManager : MonoBehaviour
     public LayerMask instrumentLayer;
     public float grabDistance = 5f;
 
+    // Kinect management
+
+    private BodySourceManager _bodyManager;
+    private KinectSensor _kinect;
+
     [Header("Debug")]
     public TextMeshProUGUI debugText;
 
-    // Kinect management
-    private BodySourceManager _bodyManager;
-    private KinectSensor _kinect;
 
     [System.Serializable]
     public class KinectCursor

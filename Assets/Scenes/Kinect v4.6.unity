@@ -539,6 +539,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 495244c524536ed4a95035a6336bf091, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionManager
+  multiplayerEnabled: 0
   orthoCamera: {fileID: 179577171}
   kinectCursors:
   - cursorId: P1_Left
@@ -632,7 +633,7 @@ Transform:
   m_GameObject: {fileID: 269791485}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 5.72, y: 5.39, z: 0}
+  m_LocalPosition: {x: 5.5, y: 5.39, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -685,7 +686,7 @@ Transform:
   m_GameObject: {fileID: 284100441}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.2, y: 5.39, z: 0}
+  m_LocalPosition: {x: 0, y: 5.39, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2388,8 +2389,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -5.4236, y: -0.25}
-  m_SizeDelta: {x: 5.1698, y: 3.2345}
+  m_AnchoredPosition: {x: -6.7855, y: -0.25}
+  m_SizeDelta: {x: 6.5317, y: 3.328}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1436838587
 MonoBehaviour:
@@ -3534,7 +3535,7 @@ Transform:
   m_GameObject: {fileID: 1919923355}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -5.41, y: 5.39, z: 0}
+  m_LocalPosition: {x: -5.5, y: 5.39, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
