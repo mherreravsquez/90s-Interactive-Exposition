@@ -2,13 +2,16 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
+using UnityEngine.Serialization;
 
 public class BoomboxManager : MonoBehaviour
 {
     public ReaperOSCManager oscManager;
     public ReachFeedback reachFeedback;
     public int instrumentLimit = 3;
-    public Collider spreadArea;
+    [FormerlySerializedAs("spreadArea")] public Collider spreadArea1;
+    [SerializeField] public Collider spreadArea2;
+    [SerializeField] public Collider spreadArea3;
     public float resetDelay = 2f;
     
     [Header("Instrument Prefabs")]
@@ -50,7 +53,7 @@ public class BoomboxManager : MonoBehaviour
             return;
         }
         
-        if (spreadArea == null)
+        if (spreadArea1 == null)
         {
             Debug.LogError("No hay área de esparcido asignada para colocar instrumentos");
             return;
@@ -347,7 +350,7 @@ public class BoomboxManager : MonoBehaviour
     
     private void SpreadAllInstruments()
     {
-        if (spreadArea == null)
+        if (spreadArea1 == null)
         {
             Debug.LogWarning("No hay área de esparcido asignada");
             return;
@@ -372,9 +375,9 @@ public class BoomboxManager : MonoBehaviour
     
     private Vector3 GetRandomPositionInArea()
     {
-        if (spreadArea == null) return Vector3.zero;
+        if (spreadArea1 == null) return Vector3.zero;
         
-        Bounds bounds = spreadArea.bounds;
+        Bounds bounds = spreadArea1.bounds;
         
         Vector3 randomPosition = new Vector3(
             Random.Range(bounds.min.x, bounds.max.x),
