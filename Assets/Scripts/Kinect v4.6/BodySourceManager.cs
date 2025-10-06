@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections;
 using Windows.Kinect;
 using System.Linq;
-using TMPro;
+using System.Collections.Generic;
 
 public class BodySourceManager : MonoBehaviour 
 {
@@ -13,19 +13,18 @@ public class BodySourceManager : MonoBehaviour
     private BodyFrameReader _Reader;
     private Body[] _Data = null;
     
-    public Body FirstTrackedBody => _Data?.FirstOrDefault(b => b != null && b.IsTracked);
-    public HandState RightHandState => FirstTrackedBody?.HandRightState ?? HandState.Unknown;
-    public HandState LeftHandState => FirstTrackedBody?.HandLeftState ?? HandState.Unknown;
-    public Vector3 BodyLean => FirstTrackedBody != null ? 
-        new Vector3(FirstTrackedBody.Lean.X, FirstTrackedBody.Lean.Y, 0) : Vector3.zero;
+    // Track up to 2 bodies (2 players)
+    public List<Body> TrackedBodies { get; private set; } = new List<Body>();
     public bool IsSensorAvailable => _Sensor != null && _Sensor.IsOpen;
 
+    // Events for hand state changes per body
     public System.Action<bool> OnBodyDataUpdated;
-    public System.Action<HandState> OnRightHandStateChanged;
-    public System.Action<HandState> OnLeftHandStateChanged;
-    
-    private HandState _previousRightHandState = HandState.Unknown;
-    private HandState _previousLeftHandState = HandState.Unknown;
+    public System.Action<int, HandState> OnRightHandStateChanged; // int: body index (0 or 1)
+    public System.Action<int, HandState> OnLeftHandStateChanged;
+
+    // Previous hand states per body
+    private HandState[] _previousRightHandStates = new HandState[2];
+    private HandState[] _previousLeftHandStates = new HandState[2];
 
     private void Awake()
     {
@@ -49,7 +48,7 @@ public class BodySourceManager : MonoBehaviour
                 _Sensor.Open();
             }
             
-            Debug.Log("BodySourceManager iniciado - Esperando frames...");
+            Debug.Log("BodySourceManager started - Waiting for frames...");
         }
     }
     
@@ -73,27 +72,60 @@ public class BodySourceManager : MonoBehaviour
     
     private void ProcessBodyData()
     {
-        if (FirstTrackedBody != null)
+        // Clear previous tracked bodies
+        TrackedBodies.Clear();
+
+        // Add up to 2 tracked bodies
+        if (_Data != null)
         {
-            // Detectar cambios de estado de manos
-            if (_previousRightHandState != RightHandState)
+            foreach (var body in _Data)
             {
-                OnRightHandStateChanged?.Invoke(RightHandState);
-                _previousRightHandState = RightHandState;
+                if (body != null && body.IsTracked)
+                {
+                    TrackedBodies.Add(body);
+                    if (TrackedBodies.Count >= 2) break; // Only track 2 bodies maximum
+                }
             }
-            
-            if (_previousLeftHandState != LeftHandState)
+        }
+
+        // Process hand state changes for each tracked body
+        for (int i = 0; i < TrackedBodies.Count; i++)
+        {
+            var body = TrackedBodies[i];
+            HandState currentRightState = body.HandRightState;
+            HandState currentLeftState = body.HandLeftState;
+
+            // Check for right hand state changes
+            if (_previousRightHandStates[i] != currentRightState)
             {
-                OnLeftHandStateChanged?.Invoke(LeftHandState);
-                _previousLeftHandState = LeftHandState;
+                OnRightHandStateChanged?.Invoke(i, currentRightState);
+                _previousRightHandStates[i] = currentRightState;
+            }
+
+            // Check for left hand state changes
+            if (_previousLeftHandStates[i] != currentLeftState)
+            {
+                OnLeftHandStateChanged?.Invoke(i, currentLeftState);
+                _previousLeftHandStates[i] = currentLeftState;
             }
         }
     }
 
-    // Método auxiliar para escalar valores
-    private float RescalingToRanges(float scaleAStart, float scaleAEnd, float scaleBStart, float scaleBEnd, float valueA)
+    // Helper method to get a specific body by index
+    public Body GetBody(int bodyIndex)
     {
-        return (((valueA - scaleAStart) * (scaleBEnd - scaleBStart)) / (scaleAEnd - scaleAStart)) + scaleBStart;
+        if (bodyIndex >= 0 && bodyIndex < TrackedBodies.Count)
+            return TrackedBodies[bodyIndex];
+        return null;
+    }
+
+    // Get hand state for specific body and hand
+    public HandState GetHandState(int bodyIndex, bool isRightHand)
+    {
+        var body = GetBody(bodyIndex);
+        if (body != null)
+            return isRightHand ? body.HandRightState : body.HandLeftState;
+        return HandState.Unknown;
     }
 
     public Body[] GetData()
