@@ -576,8 +576,8 @@ MonoBehaviour:
     isRightHand: 0
     cursorTransform: {fileID: 587083019}
     handSprites:
-    - {fileID: 21300000, guid: 3d05f6e5019a119458d6629357d62ce7, type: 3}
-    - {fileID: 21300000, guid: b30d42dfcd93fb443b5e0b1e4b887e8f, type: 3}
+    - {fileID: 21300000, guid: 06b57482de5da7444af3a1b18b067f7b, type: 3}
+    - {fileID: 21300000, guid: 7694b58da0c4a5143a2988bf5ed8a404, type: 3}
     smoothFactor: 10
     borderMargin: 0.02
     previousHandState: 0
@@ -591,8 +591,8 @@ MonoBehaviour:
     isRightHand: 0
     cursorTransform: {fileID: 640588688}
     handSprites:
-    - {fileID: 21300000, guid: 31bbee7ec7937364786b622371594e7d, type: 3}
-    - {fileID: 21300000, guid: 06634a67892dd344cba7eeb940f15ee2, type: 3}
+    - {fileID: 21300000, guid: 95444efd10a45724d8bd3fd86956e2d9, type: 3}
+    - {fileID: 21300000, guid: 2fc4ab8f9de5cba48875224140214620, type: 3}
     smoothFactor: 10
     borderMargin: 0.02
     previousHandState: 0
@@ -928,14 +928,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.4764151, b: 0.4764151, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 3d05f6e5019a119458d6629357d62ce7, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 06b57482de5da7444af3a1b18b067f7b, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1003,14 +1003,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.4764151, b: 0.4764151, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 31bbee7ec7937364786b622371594e7d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 95444efd10a45724d8bd3fd86956e2d9, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
