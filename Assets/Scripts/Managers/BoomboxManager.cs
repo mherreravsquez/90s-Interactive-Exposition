@@ -389,10 +389,9 @@ public class BoomboxManager : MonoBehaviour
     {
         if (instrument == null) return;
         
-        // Desactivar el SpriteRenderer
-        SpriteRenderer spriteRenderer = instrument.GetComponent<SpriteRenderer>();
-        if (spriteRenderer != null)
-            spriteRenderer.enabled = false;
+        MeshRenderer meshRenderer = instrument.GetComponent<MeshRenderer>();
+        if (meshRenderer != null)
+            meshRenderer.enabled = false;
         
         // Desactivar el Animator
         Animator animator = instrument.GetComponent<Animator>();
