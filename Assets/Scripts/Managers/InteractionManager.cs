@@ -1,16 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections.Generic;
-using System.Linq;
-using TMPro;
 using Windows.Kinect;
+using TMPro;
+using System.Collections.Generic;
 using Joint = Windows.Kinect.Joint;
 
 public class InteractionManager : MonoBehaviour
 {
-    [Header("Multiplayer?")]
-    public bool multiplayerEnabled = true;
-
     [Header("Camera Reference")]
     [SerializeField] private Camera orthoCamera;
     
@@ -25,19 +21,18 @@ public class InteractionManager : MonoBehaviour
     public LayerMask instrumentLayer;
     public float grabDistance = 5f;
 
+    [Header("Debug")]
+    public TextMeshProUGUI debugText;
+
     // Kinect management
     private BodySourceManager _bodyManager;
     private KinectSensor _kinect;
-
-    [Header("Debug")]
-    public TextMeshProUGUI debugText;
 
     [System.Serializable]
     public class KinectCursor
     {
         public string cursorId;
-        public int bodyIndex; // 0 = Left Player, 1 = Right Player
-        public bool isRightHand; // true = right hand, false = left hand
+        public bool useRightHand = true;
         public RectTransform cursorTransform;
         public Sprite[] handSprites;
         public float smoothFactor = 10f;
@@ -50,9 +45,6 @@ public class InteractionManager : MonoBehaviour
         public Vector3 grabOffset;
         public bool isGrabbing = false;
         public Vector2 currentScreenPosition;
-
-        // Helper property to get cursor description
-        public string Description => $"{(bodyIndex == 0 ? "Left" : "Right")} Player {(isRightHand ? "Right" : "Left")} Hand";
     }
 
     private void Start()
@@ -72,42 +64,7 @@ public class InteractionManager : MonoBehaviour
             _bodyManager.OnLeftHandStateChanged += OnLeftHandStateChanged;
         }
 
-        // Initialize default cursors if empty
-        InitializeDefaultCursors();
-    }
-
-    private void InitializeDefaultCursors()
-    {
-        if (kinectCursors.Count == 0)
-        {
-            // Left Player - Left Hand
-            kinectCursors.Add(new KinectCursor { 
-                cursorId = "P1_Left", 
-                bodyIndex = 0, 
-                isRightHand = false 
-            });
-            
-            // Left Player - Right Hand
-            kinectCursors.Add(new KinectCursor { 
-                cursorId = "P1_Right", 
-                bodyIndex = 0, 
-                isRightHand = true 
-            });
-            
-            // Right Player - Left Hand
-            kinectCursors.Add(new KinectCursor { 
-                cursorId = "P2_Left", 
-                bodyIndex = 1, 
-                isRightHand = false 
-            });
-            
-            // Right Player - Right Hand
-            kinectCursors.Add(new KinectCursor { 
-                cursorId = "P2_Right", 
-                bodyIndex = 1, 
-                isRightHand = true 
-            });
-        }
+        UpdateDebugText("System ready. Multiple cursors initialized.");
     }
 
     private void Update()
@@ -203,43 +160,43 @@ public class InteractionManager : MonoBehaviour
     private void UpdateKinectCursors()
     {
         if (_bodyManager == null || !_bodyManager.IsSensorAvailable) 
-            return;
-
-        // Clear hand closed flags at start of frame
-        foreach (var cursor in kinectCursors)
         {
-            cursor.handClosedThisFrame = false;
+            UpdateDebugText("Kinect not available");
+            return;
         }
 
-        // Update each cursor with its corresponding body and hand
-        foreach (var cursor in kinectCursors)
+        Body firstBody = _bodyManager.FirstTrackedBody;
+        if (firstBody != null)
         {
-            if (cursor.cursorTransform != null)
+            foreach (var cursor in kinectCursors)
             {
-                // Get the body for this cursor based on spatial position
-                Body body = _bodyManager.GetBody(cursor.bodyIndex);
-                if (body != null && body.IsTracked)
+                if (cursor.cursorTransform != null)
                 {
-                    UpdateCursorPosition(cursor, body);
+                    UpdateCursorPosition(cursor, firstBody);
                     UpdateCursorAppearance(cursor);
                     UpdateGrabSystem(cursor);
                 }
-                else
-                {
-                    // Body not available, reset cursor state
-                    ResetCursorState(cursor);
-                }
+            }
+
+            // Update debug text with first cursor status
+            if (kinectCursors.Count > 0)
+            {
+                string handState = kinectCursors[0].useRightHand ? 
+                    firstBody.HandRightState.ToString() : firstBody.HandLeftState.ToString();
+                string grabStatus = kinectCursors[0].isGrabbing ? 
+                    $"Grabbing: {kinectCursors[0].grabbedObject.name}" : "Ready to grab";
+                UpdateDebugText($"Hand: {handState} | {grabStatus} | Cursors: {kinectCursors.Count}");
             }
         }
-
-        // Update debug text with tracking info
-        UpdateDebugStateText();
+        else
+        {
+            UpdateDebugText("Please stand in front of Kinect sensor");
+        }
     }
 
     private void UpdateCursorPosition(KinectCursor cursor, Body body)
     {
-        // CORRECCIÓN CLAVE: Usar la joint específica de la mano correcta
-        JointType handType = cursor.isRightHand ? JointType.HandRight : JointType.HandLeft;
+        JointType handType = cursor.useRightHand ? JointType.HandRight : JointType.HandLeft;
         Joint hand = body.Joints[handType];
         
         if (hand.TrackingState == TrackingState.Tracked)
@@ -247,59 +204,7 @@ public class InteractionManager : MonoBehaviour
             Vector2 screenPosition = ConvertToScreen(hand.Position);
             cursor.currentScreenPosition = screenPosition;
             MoveCursorUI(cursor, screenPosition);
-            
-            // Debug para verificar que cada cursor usa la mano correcta
-            Debug.Log($"{cursor.Description} - Position: {hand.Position.X:F2}, {hand.Position.Y:F2}");
         }
-    }
-
-    private void ResetCursorState(KinectCursor cursor)
-    {
-        if (cursor.isGrabbing)
-        {
-            ReleaseInstrument(cursor);
-        }
-        cursor.previousHandState = HandState.Unknown;
-        cursor.handClosedThisFrame = false;
-    }
-
-    private void UpdateDebugStateText()
-    {
-        if (debugText == null) return;
-
-        int trackedBodies = _bodyManager.TrackedBodies.Count;
-        int activeCursors = kinectCursors.Count(c => c.cursorTransform != null && c.isGrabbing);
-        
-        string debugMessage = $"Tracked Players: {trackedBodies}/2 | Active Grabs: {activeCursors}";
-        
-        // Add detailed info for each cursor
-        foreach (var cursor in kinectCursors)
-        {
-            if (cursor.cursorTransform != null)
-            {
-                Body body = _bodyManager.GetBody(cursor.bodyIndex);
-                if (body != null && body.IsTracked)
-                {
-                    JointType handType = cursor.isRightHand ? JointType.HandRight : JointType.HandLeft;
-                    Joint hand = body.Joints[handType];
-                    
-                    string handState = cursor.isRightHand ? 
-                        body.HandRightState.ToString() : body.HandLeftState.ToString();
-                    
-                    string handPos = hand.TrackingState == TrackingState.Tracked ? 
-                        $"({hand.Position.X:F2}, {hand.Position.Y:F2})" : "Not Tracked";
-                    
-                    string status = cursor.isGrabbing ? "GRABBING" : "TRACKING";
-                    debugMessage += $"\n{cursor.Description}: {status} | State: {handState} | Pos: {handPos}";
-                }
-                else
-                {
-                    debugMessage += $"\n{cursor.Description}: NO BODY";
-                }
-            }
-        }
-        
-        debugText.text = debugMessage;
     }
 
     private void MoveCursorUI(KinectCursor cursor, Vector2 screenPosition)
@@ -367,30 +272,22 @@ public class InteractionManager : MonoBehaviour
 
     #region Hand State Events
 
-    private void OnRightHandStateChanged(int bodyIndex, HandState newState)
+    private void OnRightHandStateChanged(HandState newState)
     {
-        // CORRECCIÓN: Solo procesar si tenemos un cuerpo en ese índice
-        if (bodyIndex >= _bodyManager.TrackedBodies.Count) return;
-
-        // Update all cursors that match this body and are right hands
         foreach (var cursor in kinectCursors)
         {
-            if (cursor.bodyIndex == bodyIndex && cursor.isRightHand)
+            if (cursor.useRightHand)
             {
                 ProcessHandStateChange(cursor, newState);
             }
         }
     }
 
-    private void OnLeftHandStateChanged(int bodyIndex, HandState newState)
+    private void OnLeftHandStateChanged(HandState newState)
     {
-        // CORRECCIÓN: Solo procesar si tenemos un cuerpo en ese índice
-        if (bodyIndex >= _bodyManager.TrackedBodies.Count) return;
-
-        // Update all cursors that match this body and are left hands
         foreach (var cursor in kinectCursors)
         {
-            if (cursor.bodyIndex == bodyIndex && !cursor.isRightHand)
+            if (!cursor.useRightHand)
             {
                 ProcessHandStateChange(cursor, newState);
             }
@@ -404,16 +301,12 @@ public class InteractionManager : MonoBehaviour
         {
             cursor.handClosedThisFrame = true;
             if (!cursor.isGrabbing)
-            {
-                Debug.Log($"{cursor.Description} - Hand closed, attempting grab");
                 TryGrabInstrument(cursor);
-            }
         }
         
         // Detect hand OPENED (release)
         if (cursor.isGrabbing && cursor.previousHandState == HandState.Closed && newState != HandState.Closed)
         {
-            Debug.Log($"{cursor.Description} - Hand opened, releasing");
             ReleaseInstrument(cursor);
         }
 
@@ -457,15 +350,12 @@ public class InteractionManager : MonoBehaviour
             instrumentPosition.y - cursorPosition.y,
             0f
         );
-
-        Debug.Log($"{cursor.Description} grabbed: {instrument.name}");
     }
 
     private void ReleaseInstrument(KinectCursor cursor)
     {
         if (!cursor.isGrabbing) return;
         
-        Debug.Log($"{cursor.Description} released: {cursor.grabbedObject.name}");
         cursor.grabbedObject = null;
         cursor.isGrabbing = false;
     }
@@ -501,6 +391,11 @@ public class InteractionManager : MonoBehaviour
         }
     }
 
+    private void UpdateDebugText(string message)
+    {
+        if (debugText != null) debugText.text = message;
+    }
+
     #endregion
 
     #region Public Methods for Cursor Management
@@ -518,14 +413,6 @@ public class InteractionManager : MonoBehaviour
     public KinectCursor GetCursor(string cursorId)
     {
         return kinectCursors.Find(c => c.cursorId == cursorId);
-    }
-
-    // Get cursor by ID (0-3)
-    public KinectCursor GetCursorById(int cursorId)
-    {
-        if (cursorId >= 0 && cursorId < kinectCursors.Count)
-            return kinectCursors[cursorId];
-        return null;
     }
 
     #endregion

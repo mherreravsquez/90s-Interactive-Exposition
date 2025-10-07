@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections;
 using Windows.Kinect;
 using System.Linq;
-using System.Collections.Generic;
+using TMPro;
 
 public class BodySourceManager : MonoBehaviour 
 {
@@ -13,18 +13,19 @@ public class BodySourceManager : MonoBehaviour
     private BodyFrameReader _Reader;
     private Body[] _Data = null;
     
-    // Tracked bodies sorted by X position (left to right)
-    public List<Body> TrackedBodies { get; private set; } = new List<Body>();
+    public Body FirstTrackedBody => _Data?.FirstOrDefault(b => b != null && b.IsTracked);
+    public HandState RightHandState => FirstTrackedBody?.HandRightState ?? HandState.Unknown;
+    public HandState LeftHandState => FirstTrackedBody?.HandLeftState ?? HandState.Unknown;
+    public Vector3 BodyLean => FirstTrackedBody != null ? 
+        new Vector3(FirstTrackedBody.Lean.X, FirstTrackedBody.Lean.Y, 0) : Vector3.zero;
     public bool IsSensorAvailable => _Sensor != null && _Sensor.IsOpen;
 
-    // Events for hand state changes per body
     public System.Action<bool> OnBodyDataUpdated;
-    public System.Action<int, HandState> OnRightHandStateChanged; // int: body index (0 = left player, 1 = right player)
-    public System.Action<int, HandState> OnLeftHandStateChanged;
-
-    // Previous hand states per body
-    private HandState[] _previousRightHandStates = new HandState[2];
-    private HandState[] _previousLeftHandStates = new HandState[2];
+    public System.Action<HandState> OnRightHandStateChanged;
+    public System.Action<HandState> OnLeftHandStateChanged;
+    
+    private HandState _previousRightHandState = HandState.Unknown;
+    private HandState _previousLeftHandState = HandState.Unknown;
 
     private void Awake()
     {
@@ -48,7 +49,7 @@ public class BodySourceManager : MonoBehaviour
                 _Sensor.Open();
             }
             
-            Debug.Log("BodySourceManager started - Waiting for frames...");
+            Debug.Log("BodySourceManager iniciado - Esperando frames...");
         }
     }
     
@@ -72,77 +73,27 @@ public class BodySourceManager : MonoBehaviour
     
     private void ProcessBodyData()
     {
-        // Clear previous tracked bodies
-        TrackedBodies.Clear();
-
-        // Get all tracked bodies
-        var trackedBodies = new List<Body>();
-        if (_Data != null)
+        if (FirstTrackedBody != null)
         {
-            foreach (var body in _Data)
+            // Detectar cambios de estado de manos
+            if (_previousRightHandState != RightHandState)
             {
-                if (body != null && body.IsTracked)
-                {
-                    trackedBodies.Add(body);
-                }
+                OnRightHandStateChanged?.Invoke(RightHandState);
+                _previousRightHandState = RightHandState;
             }
-        }
-
-        // Sort bodies by X position (left to right)
-        TrackedBodies = trackedBodies
-            .OrderBy(b => b.Joints[JointType.SpineBase].Position.X)
-            .Take(2) // Only take 2 players max
-            .ToList();
-
-        // Process hand state changes for each tracked body
-        for (int i = 0; i < TrackedBodies.Count; i++)
-        {
-            var body = TrackedBodies[i];
-            HandState currentRightState = body.HandRightState;
-            HandState currentLeftState = body.HandLeftState;
-
-            // Check for right hand state changes
-            if (_previousRightHandStates[i] != currentRightState)
+            
+            if (_previousLeftHandState != LeftHandState)
             {
-                OnRightHandStateChanged?.Invoke(i, currentRightState);
-                _previousRightHandStates[i] = currentRightState;
-            }
-
-            // Check for left hand state changes
-            if (_previousLeftHandStates[i] != currentLeftState)
-            {
-                OnLeftHandStateChanged?.Invoke(i, currentLeftState);
-                _previousLeftHandStates[i] = currentLeftState;
+                OnLeftHandStateChanged?.Invoke(LeftHandState);
+                _previousLeftHandState = LeftHandState;
             }
         }
     }
 
-    // Helper method to get a specific body by index (0 = left player, 1 = right player)
-    public Body GetBody(int bodyIndex)
+    // Método auxiliar para escalar valores
+    private float RescalingToRanges(float scaleAStart, float scaleAEnd, float scaleBStart, float scaleBEnd, float valueA)
     {
-        if (bodyIndex >= 0 && bodyIndex < TrackedBodies.Count)
-            return TrackedBodies[bodyIndex];
-        return null;
-    }
-
-    // Get body by spatial position (0 = leftmost, 1 = rightmost)
-    public Body GetLeftPlayer()
-    {
-        return TrackedBodies.Count > 0 ? TrackedBodies[0] : null;
-    }
-
-    public Body GetRightPlayer()
-    {
-        return TrackedBodies.Count > 1 ? TrackedBodies[1] : null;
-    }
-
-    // Get hand state for specific body and hand
-    public HandState GetHandState(int bodyIndex, bool isRightHand)
-    {
-        var body = GetBody(bodyIndex);
-        if (body != null)
-            return isRightHand ? body.HandRightState : body.HandLeftState;
-        return HandState.Unknown;
+        return (((valueA - scaleAStart) * (scaleBEnd - scaleBStart)) / (scaleAEnd - scaleAStart)) + scaleBStart;
     }
 
     public Body[] GetData()
