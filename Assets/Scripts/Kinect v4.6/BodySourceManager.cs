@@ -13,13 +13,13 @@ public class BodySourceManager : MonoBehaviour
     private BodyFrameReader _Reader;
     private Body[] _Data = null;
     
-    // Track up to 2 bodies (2 players)
+    // Tracked bodies sorted by X position (left to right)
     public List<Body> TrackedBodies { get; private set; } = new List<Body>();
     public bool IsSensorAvailable => _Sensor != null && _Sensor.IsOpen;
 
     // Events for hand state changes per body
     public System.Action<bool> OnBodyDataUpdated;
-    public System.Action<int, HandState> OnRightHandStateChanged; // int: body index (0 or 1)
+    public System.Action<int, HandState> OnRightHandStateChanged; // int: body index (0 = left player, 1 = right player)
     public System.Action<int, HandState> OnLeftHandStateChanged;
 
     // Previous hand states per body
@@ -75,18 +75,24 @@ public class BodySourceManager : MonoBehaviour
         // Clear previous tracked bodies
         TrackedBodies.Clear();
 
-        // Add up to 2 tracked bodies
+        // Get all tracked bodies
+        var trackedBodies = new List<Body>();
         if (_Data != null)
         {
             foreach (var body in _Data)
             {
                 if (body != null && body.IsTracked)
                 {
-                    TrackedBodies.Add(body);
-                    if (TrackedBodies.Count >= 2) break; // Only track 2 bodies maximum
+                    trackedBodies.Add(body);
                 }
             }
         }
+
+        // Sort bodies by X position (left to right)
+        TrackedBodies = trackedBodies
+            .OrderBy(b => b.Joints[JointType.SpineBase].Position.X)
+            .Take(2) // Only take 2 players max
+            .ToList();
 
         // Process hand state changes for each tracked body
         for (int i = 0; i < TrackedBodies.Count; i++)
@@ -111,12 +117,23 @@ public class BodySourceManager : MonoBehaviour
         }
     }
 
-    // Helper method to get a specific body by index
+    // Helper method to get a specific body by index (0 = left player, 1 = right player)
     public Body GetBody(int bodyIndex)
     {
         if (bodyIndex >= 0 && bodyIndex < TrackedBodies.Count)
             return TrackedBodies[bodyIndex];
         return null;
+    }
+
+    // Get body by spatial position (0 = leftmost, 1 = rightmost)
+    public Body GetLeftPlayer()
+    {
+        return TrackedBodies.Count > 0 ? TrackedBodies[0] : null;
+    }
+
+    public Body GetRightPlayer()
+    {
+        return TrackedBodies.Count > 1 ? TrackedBodies[1] : null;
     }
 
     // Get hand state for specific body and hand
