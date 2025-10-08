@@ -125,7 +125,7 @@ public class BoomboxManager : MonoBehaviour
         // Agregar a la lista de instrumentos instanciados
         spawnedInstruments.Add(newInstrument);
         
-        Debug.Log($"Instanciado instrumento único: {newInstrument.name} en posición {randomPosition}");
+        // Debug.Log($"Instanciado instrumento único: {newInstrument.name} en posición {randomPosition}");
     }
     
     void OnTriggerEnter(Collider other)
