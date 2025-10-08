@@ -201,6 +201,19 @@ public class BoomboxManager : MonoBehaviour
                 return;
             }
 
+            InstrumentData newInstrument = instrumentComponent.instrumentData;
+            
+            // Check if an instrument of the same type is already in the boombox
+            InstrumentData existingInstrumentOfSameType = activeInstruments.Find(instr => instr.instrumentType == newInstrument.instrumentType);
+            
+            if (existingInstrumentOfSameType != null)
+            {
+                // If same type already exists, remove the last instrument
+                Debug.Log($"Instrument of type {newInstrument.instrumentType} already in boombox. Removing last instrument.");
+                RemoveLastInstrument();
+                return; // Exit and wait for the removal to complete
+            }
+
             // Mark instrument as non-interactable
             instrumentComponent.isInBoombox = true;
 
@@ -217,24 +230,22 @@ public class BoomboxManager : MonoBehaviour
             {
                 reachFeedback.ForceRemoveInstrument(other.gameObject);
             }
-
-            InstrumentData instrument = instrumentComponent.instrumentData;
             
             // Add to active instruments list
-            if (!activeInstruments.Contains(instrument))
+            if (!activeInstruments.Contains(newInstrument))
             {
-                activeInstruments.Add(instrument);
+                activeInstruments.Add(newInstrument);
                 
                 // Update animation
                 UpdateAnimationState();
             }
             
-            Debug.Log($"Instrument {instrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
+            Debug.Log($"Instrument {newInstrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
             
             // Send unmute command to REAPER
             if (oscManager != null)
             {
-                oscManager.SendTrackUnmute(instrument.instrumentID);
+                oscManager.SendTrackUnmute(newInstrument.instrumentID);
                 
                 // If first instrument, start REAPER playback
                 if (activeInstruments.Count == 1)
@@ -250,7 +261,7 @@ public class BoomboxManager : MonoBehaviour
                 Debug.LogWarning("OSC Manager not assigned in BoomboxManager");
             }
             
-            // Check if limit reached
+            // Check if limit reached (now 3 different types)
             if (activeInstruments.Count >= instrumentLimit && !isLimitReached)
             {
                 isLimitReached = true;
