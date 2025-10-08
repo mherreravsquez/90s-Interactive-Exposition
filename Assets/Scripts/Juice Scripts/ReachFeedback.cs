@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
+using DG.Tweening;
 
 public class ReachFeedback : MonoBehaviour
 {
@@ -27,10 +28,19 @@ public class ReachFeedback : MonoBehaviour
     public float fadeInDuration = 1f;      // More gradual fade in
     public float fadeOutDuration = 0.8f;   // More gradual fade out
 
+    [Header("Visual Feedback")]
+    public SpriteRenderer feedbackSprite;
+    public ParticleSystem feedbackParticles;
+    public float spriteFadeInDuration = 0.5f;
+    public float spriteFadeOutDuration = 0.3f;
+
     // Dictionaries to manage multiple instruments
     private Dictionary<GameObject, AudioSource> activeInstruments = new Dictionary<GameObject, AudioSource>();
     private Dictionary<AudioSource, float> volumeVelocities = new Dictionary<AudioSource, float>();
     private Dictionary<AudioSource, float> fadeTimers = new Dictionary<AudioSource, float>();
+    
+    private int activeInstrumentCount = 0;
+    private Color originalSpriteColor;
 
     private void Start()
     {
@@ -43,6 +53,21 @@ public class ReachFeedback : MonoBehaviour
                 new Keyframe(0.6f, 0.4f),
                 new Keyframe(1f, 0.15f)
             );
+        }
+        
+        // Store original sprite color and set initial transparency
+        if (feedbackSprite != null)
+        {
+            originalSpriteColor = feedbackSprite.color;
+            Color transparentColor = originalSpriteColor;
+            transparentColor.a = 0f;
+            feedbackSprite.color = transparentColor;
+        }
+        
+        // Stop particles initially
+        if (feedbackParticles != null && feedbackParticles.isPlaying)
+        {
+            feedbackParticles.Stop();
         }
     }
 
@@ -64,6 +89,14 @@ public class ReachFeedback : MonoBehaviour
                 
                 audioSource.volume = minVolume;  // Start with minimum volume
                 audioSource.Play();
+                
+                activeInstrumentCount++;
+                
+                // Activate visual feedback when first instrument enters
+                if (activeInstrumentCount == 1)
+                {
+                    ActivateVisualFeedback();
+                }
                 
                 // Debug.Log($"{other.name} entered reach area. Active instruments: {activeInstruments.Count}");
             }
@@ -165,6 +198,14 @@ public class ReachFeedback : MonoBehaviour
             volumeVelocities.Remove(audioSource);
             fadeTimers.Remove(audioSource);
             
+            activeInstrumentCount--;
+            
+            // Deactivate visual feedback when no instruments remain
+            if (activeInstrumentCount == 0)
+            {
+                DeactivateVisualFeedback();
+            }
+            
             // Debug.Log($"{instrumentObj.name} left reach area. Active instruments: {activeInstruments.Count}");
         }
     }
@@ -198,6 +239,44 @@ public class ReachFeedback : MonoBehaviour
         {
             RemoveInstrument(instrument);
         }
+    }
+
+    private void ActivateVisualFeedback()
+    {
+        // Fade in sprite using DOTween
+        if (feedbackSprite != null)
+        {
+            feedbackSprite.DOKill(); // Kill any existing tween
+            feedbackSprite.DOFade(originalSpriteColor.a, spriteFadeInDuration)
+                .SetEase(Ease.OutQuad);
+        }
+        
+        // Play particles
+        if (feedbackParticles != null && !feedbackParticles.isPlaying)
+        {
+            feedbackParticles.Play();
+        }
+        
+        Debug.Log("Visual feedback activated");
+    }
+
+    private void DeactivateVisualFeedback()
+    {
+        // Fade out sprite using DOTween
+        if (feedbackSprite != null)
+        {
+            feedbackSprite.DOKill(); // Kill any existing tween
+            feedbackSprite.DOFade(0f, spriteFadeOutDuration)
+                .SetEase(Ease.InQuad);
+        }
+        
+        // Stop particles
+        if (feedbackParticles != null && feedbackParticles.isPlaying)
+        {
+            feedbackParticles.Stop();
+        }
+        
+        Debug.Log("Visual feedback deactivated");
     }
 
     private void OnDrawGizmosSelected()
