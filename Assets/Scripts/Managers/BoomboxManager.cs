@@ -8,10 +8,11 @@ public class BoomboxManager : MonoBehaviour
 {
     public ReaperOSCManager oscManager;
     public ReachFeedback reachFeedback;
+    
     public int instrumentLimit = 3;
-    [FormerlySerializedAs("spreadArea")] public Collider spreadArea1;
-    [SerializeField] public Collider spreadArea2;
-    [SerializeField] public Collider spreadArea3;
+    [SerializeField] public Collider drumsSpreadArea;
+    [SerializeField] public Collider bassSpreadArea;
+    public Collider instrumentalSpreadArea;
     public float resetDelay = 2f;
     
     [Header("Instrument Prefabs")]
@@ -53,9 +54,9 @@ public class BoomboxManager : MonoBehaviour
             return;
         }
         
-        if (spreadArea1 == null)
+        if (drumsSpreadArea == null || bassSpreadArea == null || instrumentalSpreadArea == null)
         {
-            Debug.LogError("No hay área de esparcido asignada para colocar instrumentos");
+            Debug.LogError("Faltan áreas de esparcido asignadas para colocar instrumentos");
             return;
         }
         
@@ -110,8 +111,8 @@ public class BoomboxManager : MonoBehaviour
         // Registrar el tipo de instrumento usado
         usedInstrumentTypes.Add(newInstrumentComponent.instrumentData);
         
-        // Posicionar en un lugar aleatorio del área
-        Vector3 randomPosition = GetRandomPositionInArea();
+        // Posicionar en el área correspondiente según el tipo
+        Vector3 randomPosition = GetPositionByInstrumentType(newInstrumentComponent.instrumentData.instrumentType);
         newInstrument.transform.position = randomPosition;
         
         // Asegurarse de que tenga el tag correcto                                               
@@ -125,8 +126,57 @@ public class BoomboxManager : MonoBehaviour
         // Agregar a la lista de instrumentos instanciados
         spawnedInstruments.Add(newInstrument);
         
-        // Debug.Log($"Instanciado instrumento único: {newInstrument.name} en posición {randomPosition}");
+        Debug.Log($"Instanciado instrumento único: {newInstrument.name} (Tipo: {newInstrumentComponent.instrumentData.instrumentType}) en posición {randomPosition}");
     }
+    
+    private Vector3 GetPositionByInstrumentType(InstrumentType instrumentType)
+    {
+        Collider targetArea = GetAreaForInstrumentType(instrumentType);
+        
+        if (targetArea == null)
+        {
+            Debug.LogWarning($"No se encontró área para el tipo {instrumentType}, usando área de drums por defecto");
+            targetArea = drumsSpreadArea;
+        }
+        
+        return GetRandomPositionInArea(targetArea);
+    }
+    
+    private Collider GetAreaForInstrumentType(InstrumentType instrumentType)
+    {
+        switch (instrumentType)
+        {
+            case InstrumentType.Drums:
+                return drumsSpreadArea;
+            case InstrumentType.Bass:
+                return bassSpreadArea;
+            case InstrumentType.Instrumental:
+                return instrumentalSpreadArea;
+            default:
+                Debug.LogWarning($"Tipo de instrumento no reconocido: {instrumentType}, usando área instrumental por defecto");
+                return instrumentalSpreadArea;
+        }
+    }
+    
+    private Vector3 GetRandomPositionInArea(Collider area)
+    {
+        if (area == null)
+        {
+            Debug.LogError("El área es nula, no se puede generar posición");
+            return Vector3.zero;
+        }
+        
+        Bounds bounds = area.bounds;
+        
+        Vector3 randomPosition = new Vector3(
+            Random.Range(bounds.min.x, bounds.max.x),
+            Random.Range(bounds.min.y, bounds.max.y),
+            Random.Range(bounds.min.z, bounds.max.z)
+        );
+        
+        return randomPosition;
+    }
+    
     
     void OnTriggerEnter(Collider other)
     {
@@ -350,34 +400,38 @@ public class BoomboxManager : MonoBehaviour
     
     private void SpreadAllInstruments()
     {
-        if (spreadArea1 == null)
+        if (drumsSpreadArea == null || bassSpreadArea == null || instrumentalSpreadArea == null)
         {
-            Debug.LogWarning("No hay área de esparcido asignada");
+            Debug.LogWarning("Faltan áreas de esparcido asignadas");
             return;
         }
         
-        Debug.Log($"Esparciendo {spawnedInstruments.Count} instrumentos instanciados");
+        Debug.Log($"Esparciendo {spawnedInstruments.Count} instrumentos instanciados por tipo");
         
-        // Esparcir todos los instrumentos instanciados
+        // Esparcir todos los instrumentos instanciados en sus áreas correspondientes
         foreach (GameObject instrument in spawnedInstruments)
         {
             if (instrument != null)
             {
-                Vector3 randomPosition = GetRandomPositionInArea();
-                instrument.transform.position = randomPosition;
-                
-                Debug.Log($"Instrumento {instrument.name} movido a {randomPosition}");
+                Instrument instrumentComp = instrument.GetComponent<Instrument>();
+                if (instrumentComp != null && instrumentComp.instrumentData != null)
+                {
+                    Vector3 randomPosition = GetPositionByInstrumentType(instrumentComp.instrumentData.instrumentType);
+                    instrument.transform.position = randomPosition;
+                    
+                    Debug.Log($"Instrumento {instrument.name} (Tipo: {instrumentComp.instrumentData.instrumentType}) movido a {randomPosition}");
+                }
             }
         }
         
-        Debug.Log($"Se esparcieron {spawnedInstruments.Count} instrumentos");
+        Debug.Log($"Se esparcieron {spawnedInstruments.Count} instrumentos por tipo");
     }
     
     private Vector3 GetRandomPositionInArea()
     {
-        if (spreadArea1 == null) return Vector3.zero;
+        if (drumsSpreadArea == null) return Vector3.zero;
         
-        Bounds bounds = spreadArea1.bounds;
+        Bounds bounds = drumsSpreadArea.bounds;
         
         Vector3 randomPosition = new Vector3(
             Random.Range(bounds.min.x, bounds.max.x),
