@@ -634,10 +634,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   grabDistance: 5
-  audioSource: {fileID: 179577174}
-  grabClip: {fileID: 8300000, guid: ef2c724656af38a419fdd7d01779cf06, type: 3}
-  releaseClip: {fileID: 8300000, guid: e391aecb104467f47bc3b1179bc889a1, type: 3}
-  soundVolume: 0.45
   debugText: {fileID: 586543298}
 --- !u!1 &286201479
 GameObject:
@@ -1387,7 +1383,7 @@ MonoBehaviour:
   - {fileID: 332263197362178377, guid: d93a208ebc6015047b413ba6c01a0510, type: 3}
   - {fileID: 332263197362178377, guid: d62804b7f814efa4a94d009259d55035, type: 3}
   initialInstrumentCount: 5
-  instrumentsParent: {fileID: 1460213263}
+  instrumentsParent: {fileID: 0}
   boomboxAnimator: {fileID: 1451806730}
   animationStateParameter: InstrumentCount
   specialEffectTrigger: SpecialEffect
@@ -1508,37 +1504,6 @@ Transform:
   - {fileID: 2628301244644521187}
   m_Father: {fileID: 1578497171}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1460213262
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1460213263}
-  m_Layer: 0
-  m_Name: Instruments
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1460213263
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1460213262}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1578497171}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1578497170
 GameObject:
   m_ObjectHideFlags: 0
@@ -1573,7 +1538,6 @@ Transform:
   - {fileID: 1454579118}
   - {fileID: 2221432394960339275}
   - {fileID: 6567995038698564500}
-  - {fileID: 1460213263}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1718256321

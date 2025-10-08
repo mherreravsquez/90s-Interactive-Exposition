@@ -1,9 +1,10 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Windows.Kinect;
-using TMPro;
 using System.Collections.Generic;
+using AudioSource = UnityEngine.AudioSource;
+using Windows.Kinect;
 using Joint = Windows.Kinect.Joint;
+using TMPro;
 
 public class InteractionManager : MonoBehaviour
 {
@@ -20,6 +21,12 @@ public class InteractionManager : MonoBehaviour
     [SerializeField] private List<KinectCursor> kinectCursors = new List<KinectCursor>();
     public LayerMask instrumentLayer;
     public float grabDistance = 5f;
+    
+    [Header("Hand Sound Effects")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip grabClip;
+    [SerializeField] private AudioClip releaseClip;
+    [SerializeField] private float soundVolume = 0.7f;
 
     [Header("Debug")]
     public TextMeshProUGUI debugText;
@@ -65,6 +72,20 @@ public class InteractionManager : MonoBehaviour
         }
 
         UpdateDebugText("System ready. Multiple cursors initialized.");
+        
+        // Get AudioSource from camera if not assigned
+        if (audioSource == null && orthoCamera != null)
+        {
+            audioSource = orthoCamera.GetComponent<AudioSource>();
+            audioSource.spatialBlend = 0f; // 2D sound
+            audioSource.playOnAwake = false;
+            if (audioSource == null)
+            {
+                audioSource = orthoCamera.gameObject.AddComponent<AudioSource>();
+                audioSource.spatialBlend = 0f; // 2D sound
+                audioSource.playOnAwake = false;
+            }
+        }
     }
 
     private void Update()
@@ -253,6 +274,14 @@ public class InteractionManager : MonoBehaviour
             image.sprite = cursor.isGrabbing ? cursor.handSprites[1] : cursor.handSprites[0];
         }
     }
+    
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip, soundVolume);
+        }
+    }
 
     private void UpdateGrabSystem(KinectCursor cursor)
     {
@@ -300,6 +329,7 @@ public class InteractionManager : MonoBehaviour
         if (cursor.previousHandState != HandState.Closed && newState == HandState.Closed)
         {
             cursor.handClosedThisFrame = true;
+            PlaySound(grabClip); // Play grab sound
             if (!cursor.isGrabbing)
                 TryGrabInstrument(cursor);
         }
@@ -307,6 +337,7 @@ public class InteractionManager : MonoBehaviour
         // Detect hand OPENED (release)
         if (cursor.isGrabbing && cursor.previousHandState == HandState.Closed && newState != HandState.Closed)
         {
+            PlaySound(releaseClip); // Play release sound
             ReleaseInstrument(cursor);
         }
 
