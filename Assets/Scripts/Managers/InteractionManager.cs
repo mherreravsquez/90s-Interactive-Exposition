@@ -6,6 +6,7 @@ using Windows.Kinect;
 using DG.Tweening;
 using Joint = Windows.Kinect.Joint;
 using TMPro;
+using UnityEngine.UI;
 
 public class InteractionManager : MonoBehaviour
 {
@@ -28,6 +29,10 @@ public class InteractionManager : MonoBehaviour
     [SerializeField] private AudioClip grabClip;
     [SerializeField] private AudioClip releaseClip;
     [SerializeField] private float soundVolume = 0.7f;
+    
+    [Header("Button Interaction")]
+    public LayerMask buttonLayer;
+    public float buttonHoverDistance = 3f;
 
     [Header("Debug")]
     public TextMeshProUGUI debugText;
@@ -58,6 +63,10 @@ public class InteractionManager : MonoBehaviour
         public float lastMoveTime;
         public Vector2 lastHandScreenPosition;
         public bool isFaded = false;
+        
+        [Header("Button Interaction")]
+        public GameObject currentHoveredButton;
+        public bool isHoveringButton = false;
     }
 
     private void Start()
@@ -208,6 +217,7 @@ public class InteractionManager : MonoBehaviour
                     UpdateCursorAppearance(cursor);
                     UpdateCursorOpacity(cursor);
                     UpdateGrabSystem(cursor);
+                    UpdateButtonInteraction(cursor);
                 }
             }
 
@@ -333,6 +343,99 @@ public class InteractionManager : MonoBehaviour
     }
 
     #endregion
+    
+    #region Button Interaction System
+
+    private void UpdateButtonInteraction(KinectCursor cursor)
+    {
+        // Verificar si el cursor está sobre un botón
+        RaycastHit[] hits = Physics.RaycastAll(
+            cursor.cursorTransform.position,
+            orthoCamera.transform.forward,
+            buttonHoverDistance,
+            buttonLayer
+        );
+
+        bool isHoveringButton = false;
+        GameObject hoveredButton = null;
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider.CompareTag("Button"))
+            {
+                isHoveringButton = true;
+                hoveredButton = hit.collider.gameObject;
+                OnButtonHover(hoveredButton, true);
+                break;
+            }
+        }
+
+        // Si no está sobre ningún botón, resetear el estado de hover
+        if (!isHoveringButton)
+        {
+            ResetButtonHoverState();
+        }
+
+        // Actualizar el estado del botón hovered
+        cursor.currentHoveredButton = hoveredButton;
+    }
+
+    private void OnButtonHover(GameObject button, bool isHovering)
+    {
+        Button buttonComponent = button.GetComponent<Button>();
+        if (buttonComponent != null)
+        {
+            // Cambiar el color o escala para feedback visual
+            Image buttonImage = button.GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                buttonImage.color = isHovering ? 
+                    new Color(0.8f, 0.9f, 1f, 1f) : // Azul claro cuando está hover
+                    Color.gray1; // Color normal
+            }
+
+            // Efecto de escala suave con DOTween
+            button.transform.DOScale(
+                isHovering ? 1.1f : 1f, 
+                0.2f
+            );
+        }
+    }
+
+    private void ResetButtonHoverState()
+    {
+        // Buscar todos los botones en la escena y resetear su estado
+        GameObject[] buttons = GameObject.FindGameObjectsWithTag("Button");
+        foreach (GameObject button in buttons)
+        {
+            OnButtonHover(button, false);
+        }
+    }
+
+    private void ActivateButton(GameObject button)
+    {
+        if (button == null) return;
+
+        Button buttonComponent = button.GetComponent<Button>();
+        if (buttonComponent != null && buttonComponent.interactable)
+        {
+            // Efecto visual al activar
+            button.transform.DOScale(0.9f, 0.1f)
+                .OnComplete(() => {
+                    button.transform.DOScale(1f, 0.1f);
+                });
+
+            // Reproducir sonido de clic si está disponible
+            PlaySound(grabClip);
+
+            // Ejecutar la acción del botón
+            buttonComponent.onClick.Invoke();
+            
+            Debug.Log($"Botón activado: {button.name}");
+        }
+    }
+
+    #endregion
 
     #region Hand State Events
 
@@ -364,15 +467,23 @@ public class InteractionManager : MonoBehaviour
         if (cursor.previousHandState != HandState.Closed && newState == HandState.Closed)
         {
             cursor.handClosedThisFrame = true;
-            PlaySound(grabClip); // Play grab sound
+            PlaySound(grabClip);
+            
+            // Primero intentar agarrar instrumento
             if (!cursor.isGrabbing)
                 TryGrabInstrument(cursor);
+            
+            // Si no está agarrando un instrumento, intentar activar botón
+            if (!cursor.isGrabbing && cursor.currentHoveredButton != null)
+            {
+                ActivateButton(cursor.currentHoveredButton);
+            }
         }
         
         // Detect hand OPENED (release)
         if (cursor.isGrabbing && cursor.previousHandState == HandState.Closed && newState != HandState.Closed)
         {
-            PlaySound(releaseClip); // Play release sound
+            PlaySound(releaseClip);
             ReleaseInstrument(cursor);
         }
 
