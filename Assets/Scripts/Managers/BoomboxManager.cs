@@ -4,6 +4,7 @@ using System.Collections;
 using System.Linq;
 using UnityEngine.Serialization;
 using DG.Tweening;
+using UnityEngine.UI;
 
 public class BoomboxManager : MonoBehaviour
 {
@@ -27,12 +28,21 @@ public class BoomboxManager : MonoBehaviour
     public string specialEffectTrigger = "SpecialEffect";
     
     [Header("Reach Feedback Reference")]
-    public Collider reacherArea; // Assign ReachFeedback collider in inspector
+    public Collider reacherArea;
     
     [Header("Animation Settings")]
     public float instrumentExitDelay = 0.5f;
     public float instrumentMoveDuration = 1f;
     public Ease instrumentMoveEase = Ease.OutBack;
+    
+    [Header("Error Feedback")]
+    public RawImage errorFeedbackImage;
+    public Color errorColor = Color.red;
+    public float shakeDuration = 0.4f;
+    public float shakeStrength = 15f;
+    public int shakeVibrato = 5;
+    public float shakeRandomness = 30f;
+    public float colorFlashDuration = 0.3f;
     
     [SerializeField] List<InstrumentData> activeInstruments = new List<InstrumentData>();
     [SerializeField] List<GameObject> spawnedInstruments = new List<GameObject>();
@@ -40,9 +50,16 @@ public class BoomboxManager : MonoBehaviour
     
     private bool isLimitReached = false;
     private bool isInSpecialEffect = false;
+    private Color originalImageColor;
     
     void Start()
     {
+        // Guardar color y posición originales de la imagen
+        if (errorFeedbackImage != null)
+        {
+            originalImageColor = errorFeedbackImage.color;
+        }
+        
         ClearForInstruments();
         
         if (boomboxAnimator != null)
@@ -208,8 +225,9 @@ public class BoomboxManager : MonoBehaviour
             
             if (existingInstrumentOfSameType != null)
             {
-                // If same type already exists, remove the last instrument
+                // If same type already exists, show error feedback and remove the last instrument
                 Debug.Log($"Instrument of type {newInstrument.instrumentType} already in boombox. Removing last instrument.");
+                PlayErrorFeedback();
                 RemoveLastInstrument();
                 return; // Exit and wait for the removal to complete
             }
@@ -268,6 +286,31 @@ public class BoomboxManager : MonoBehaviour
                 StartCoroutine(ExecuteSpecialAction());
             }
         }
+    }
+    
+    // Método para mostrar feedback de error
+    private void PlayErrorFeedback()
+    {
+        if (errorFeedbackImage == null) return;
+        
+        // Detener cualquier animación previa
+        errorFeedbackImage.DOKill();
+        
+        // Sacudir suavemente la RawImage en el eje X
+        errorFeedbackImage.rectTransform.DOShakeAnchorPos(shakeDuration, new Vector2(shakeStrength, 0), shakeVibrato, shakeRandomness, false, true)
+            .SetEase(Ease.OutQuad)
+            .OnComplete(() => {
+                // Asegurar que vuelva a la posición original
+                errorFeedbackImage.rectTransform.anchoredPosition = new Vector2(0, errorFeedbackImage.rectTransform.anchoredPosition.y);
+            });
+        
+        // Cambiar el color de la RawImage a rojo y luego volver al original
+        Sequence colorSequence = DOTween.Sequence();
+        colorSequence.Append(errorFeedbackImage.DOColor(errorColor, colorFlashDuration * 0.3f));
+        colorSequence.Append(errorFeedbackImage.DOColor(originalImageColor, colorFlashDuration * 0.7f));
+        colorSequence.Play();
+        
+        Debug.Log("Error feedback played: Instrument of same type already in boombox");
     }
     
     // Method to remove last instrument with animation
