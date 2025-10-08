@@ -15,4 +15,4 @@ MonoBehaviour:
   instrumentID: 6
   song: HardToTell
   instrumentType: 2
-  previewClip: {fileID: 8300000, guid: 7299fc5c692e0df469ca049f2cbc6ff6, type: 3}
+  previewClip: {fileID: 8300000, guid: 26082b136afbb4f4cb777a6f59ee20ce, type: 3}
