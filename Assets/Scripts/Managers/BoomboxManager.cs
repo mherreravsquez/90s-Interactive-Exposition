@@ -69,73 +69,69 @@ public class BoomboxManager : MonoBehaviour
             return;
         }
         
-        // Spawn exactly initialInstrumentCount unique instruments
-        int instrumentsToSpawn = Mathf.Min(initialInstrumentCount, instrumentPrefabs.Count);
-        for (int i = 0; i < instrumentsToSpawn; i++)
-        {
-            SpawnUniqueInstrument();
-        }
+        // Spawn exactly 2 instruments of each type
+        SpawnInstrumentsByType(InstrumentType.Drums, 2);
+        SpawnInstrumentsByType(InstrumentType.Bass, 2);
+        SpawnInstrumentsByType(InstrumentType.Instrumental, 2);
         
-        Debug.Log($"Spawned {spawnedInstruments.Count} initial instruments");
+        Debug.Log($"Spawned {spawnedInstruments.Count} initial instruments (2 of each type)");
     }
     
-    private void SpawnUniqueInstrument()
+    private void SpawnInstrumentsByType(InstrumentType type, int count)
     {
-        if (instrumentPrefabs.Count == 0) return;
-        
-        // Get prefabs that haven't been used
-        var availablePrefabs = instrumentPrefabs.Where(prefab => 
+        // Get all prefabs of the specified type
+        var typePrefabs = instrumentPrefabs.Where(prefab => 
         {
             if (prefab == null) return false;
             Instrument instrument = prefab.GetComponent<Instrument>();
             return instrument != null && instrument.instrumentData != null && 
-                   !usedInstrumentTypes.Contains(instrument.instrumentData);
+                   instrument.instrumentData.instrumentType == type;
         }).ToList();
         
-        // If no more unique types, reset pool
-        if (availablePrefabs.Count == 0)
+        if (typePrefabs.Count == 0)
         {
-            Debug.LogWarning("No more unique instruments available. Resetting pool...");
-            usedInstrumentTypes.Clear();
-            availablePrefabs = instrumentPrefabs.Where(prefab => prefab != null).ToList();
-        }
-        
-        if (availablePrefabs.Count == 0) return;
-        
-        // Choose random prefab from available ones
-        int randomIndex = Random.Range(0, availablePrefabs.Count);
-        GameObject instrumentPrefab = availablePrefabs[randomIndex];
-        
-        // Instantiate instrument
-        GameObject newInstrument = Instantiate(instrumentPrefab);
-        Instrument newInstrumentComponent = newInstrument.GetComponent<Instrument>();
-        
-        if (newInstrumentComponent == null || newInstrumentComponent.instrumentData == null)
-        {
-            Debug.LogError($"Prefab {instrumentPrefab.name} missing Instrument component or instrumentData");
-            Destroy(newInstrument);
+            Debug.LogWarning($"No instrument prefabs found for type {type}");
             return;
         }
         
-        // Register used instrument type
-        usedInstrumentTypes.Add(newInstrumentComponent.instrumentData);
-        
-        // Position in corresponding area based on type
-        Vector3 randomPosition = GetPositionByInstrumentType(newInstrumentComponent.instrumentData.instrumentType);
-        newInstrument.transform.position = randomPosition;
-        
-        // Ensure correct tag                                               
-        newInstrument.tag = "Instrument";
-
-        if (instrumentsParent != null)
+        // Spawn the requested number of instruments
+        for (int i = 0; i < count; i++)
         {
-            newInstrument.transform.SetParent(instrumentsParent, true);
+            // Select random prefab from available ones of this type
+            int randomIndex = Random.Range(0, typePrefabs.Count);
+            GameObject instrumentPrefab = typePrefabs[randomIndex];
+            
+            // Instantiate instrument
+            GameObject newInstrument = Instantiate(instrumentPrefab);
+            Instrument newInstrumentComponent = newInstrument.GetComponent<Instrument>();
+            
+            if (newInstrumentComponent == null || newInstrumentComponent.instrumentData == null)
+            {
+                Debug.LogError($"Prefab {instrumentPrefab.name} missing Instrument component or instrumentData");
+                Destroy(newInstrument);
+                continue;
+            }
+            
+            // Register used instrument type
+            usedInstrumentTypes.Add(newInstrumentComponent.instrumentData);
+            
+            // Position in corresponding area based on type
+            Vector3 randomPosition = GetPositionByInstrumentType(type);
+            newInstrument.transform.position = randomPosition;
+            
+            // Ensure correct tag                                               
+            newInstrument.tag = "Instrument";
+
+            if (instrumentsParent != null)
+            {
+                newInstrument.transform.SetParent(instrumentsParent, true);
+            }
+            
+            // Add to spawned instruments list
+            spawnedInstruments.Add(newInstrument);
+            
+            Debug.Log($"Spawned instrument: {newInstrument.name} (Type: {type}) at position {randomPosition}");
         }
-        
-        // Add to spawned instruments list
-        spawnedInstruments.Add(newInstrument);
-        
-        Debug.Log($"Spawned unique instrument: {newInstrument.name} (Type: {newInstrumentComponent.instrumentData.instrumentType}) at position {randomPosition}");
     }
     
     private Vector3 GetPositionByInstrumentType(InstrumentType instrumentType)
@@ -205,6 +201,19 @@ public class BoomboxManager : MonoBehaviour
                 return;
             }
 
+            InstrumentData newInstrument = instrumentComponent.instrumentData;
+            
+            // Check if an instrument of the same type is already in the boombox
+            InstrumentData existingInstrumentOfSameType = activeInstruments.Find(instr => instr.instrumentType == newInstrument.instrumentType);
+            
+            if (existingInstrumentOfSameType != null)
+            {
+                // If same type already exists, remove the last instrument
+                Debug.Log($"Instrument of type {newInstrument.instrumentType} already in boombox. Removing last instrument.");
+                RemoveLastInstrument();
+                return; // Exit and wait for the removal to complete
+            }
+
             // Mark instrument as non-interactable
             instrumentComponent.isInBoombox = true;
 
@@ -221,24 +230,22 @@ public class BoomboxManager : MonoBehaviour
             {
                 reachFeedback.ForceRemoveInstrument(other.gameObject);
             }
-
-            InstrumentData instrument = instrumentComponent.instrumentData;
             
             // Add to active instruments list
-            if (!activeInstruments.Contains(instrument))
+            if (!activeInstruments.Contains(newInstrument))
             {
-                activeInstruments.Add(instrument);
+                activeInstruments.Add(newInstrument);
                 
                 // Update animation
                 UpdateAnimationState();
             }
             
-            Debug.Log($"Instrument {instrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
+            Debug.Log($"Instrument {newInstrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
             
             // Send unmute command to REAPER
             if (oscManager != null)
             {
-                oscManager.SendTrackUnmute(instrument.instrumentID);
+                oscManager.SendTrackUnmute(newInstrument.instrumentID);
                 
                 // If first instrument, start REAPER playback
                 if (activeInstruments.Count == 1)
@@ -254,7 +261,7 @@ public class BoomboxManager : MonoBehaviour
                 Debug.LogWarning("OSC Manager not assigned in BoomboxManager");
             }
             
-            // Check if limit reached
+            // Check if limit reached (now 3 different types)
             if (activeInstruments.Count >= instrumentLimit && !isLimitReached)
             {
                 isLimitReached = true;
@@ -553,16 +560,23 @@ public class BoomboxManager : MonoBehaviour
         
         Debug.Log($"Removed {instrumentsToRemove.Count} instruments from boombox");
         
-        // 2. Replenish instruments up to initialInstrumentCount
+        // 2. Replenish instruments up to 6 (2 of each type)
         int currentInstrumentCount = spawnedInstruments.Count;
-        int instrumentsNeeded = initialInstrumentCount - currentInstrumentCount;
+        int instrumentsNeeded = 6 - currentInstrumentCount;
         
         Debug.Log($"Current instruments: {currentInstrumentCount}, Needed: {instrumentsNeeded}");
         
-        for (int i = 0; i < instrumentsNeeded; i++)
-        {
-            SpawnUniqueInstrument();
-        }
+        // Spawn the missing instruments by type
+        int drumsCount = spawnedInstruments.Count(instr => 
+            instr != null && instr.GetComponent<Instrument>()?.instrumentData?.instrumentType == InstrumentType.Drums);
+        int bassCount = spawnedInstruments.Count(instr => 
+            instr != null && instr.GetComponent<Instrument>()?.instrumentData?.instrumentType == InstrumentType.Bass);
+        int instrumentalCount = spawnedInstruments.Count(instr => 
+            instr != null && instr.GetComponent<Instrument>()?.instrumentData?.instrumentType == InstrumentType.Instrumental);
+        
+        SpawnInstrumentsByType(InstrumentType.Drums, 2 - drumsCount);
+        SpawnInstrumentsByType(InstrumentType.Bass, 2 - bassCount);
+        SpawnInstrumentsByType(InstrumentType.Instrumental, 2 - instrumentalCount);
         
         // 3. Spread all remaining instruments
         SpreadAllInstruments();
