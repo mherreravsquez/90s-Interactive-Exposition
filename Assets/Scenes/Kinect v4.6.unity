@@ -6472,8 +6472,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1451806728}
   - component: {fileID: 1451806729}
-  - component: {fileID: 1451806731}
   - component: {fileID: 1451806732}
+  - component: {fileID: 1451806731}
   - component: {fileID: 1451806730}
   - component: {fileID: 1451806725}
   m_Layer: 0
@@ -6553,9 +6553,13 @@ MonoBehaviour:
   - {fileID: 332263197362178377, guid: d62804b7f814efa4a94d009259d55035, type: 3}
   initialInstrumentCount: 5
   instrumentsParent: {fileID: 1460213263}
-  boomboxAnimator: {fileID: 1451806730}
-  animationStateParameter: InstrumentCount
-  specialEffectTrigger: SpecialEffect
+  videoPlayer: {fileID: 1451806732}
+  videoClips:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  videoTransitionDelay: 0.5
   reacherArea: {fileID: 1982133298}
   instrumentExitDelay: 0.5
   instrumentMoveDuration: 1
@@ -6599,7 +6603,7 @@ SpriteRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1451806724}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1

@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine.Serialization;
 using DG.Tweening;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 public class BoomboxManager : MonoBehaviour
 {
@@ -22,10 +23,10 @@ public class BoomboxManager : MonoBehaviour
     public int initialInstrumentCount;
     public Transform instrumentsParent;
     
-    [Header("Animation")]
-    public Animator boomboxAnimator;
-    public string animationStateParameter = "InstrumentCount";
-    public string specialEffectTrigger = "SpecialEffect";
+    [Header("Video Clips")]
+    public VideoPlayer videoPlayer;
+    public VideoClip[] videoClips; // 0:Reposo, 1:1Instrument, 2:2Instruments, 3:3Instruments, 4:SpecialEvent
+    public float videoTransitionDelay = 0.5f;
     
     [Header("Reach Feedback Reference")]
     public Collider reacherArea;
@@ -51,6 +52,7 @@ public class BoomboxManager : MonoBehaviour
     private bool isLimitReached = false;
     private bool isInSpecialEffect = false;
     private Color originalImageColor;
+    private Coroutine videoTransitionCoroutine;
     
     void Start()
     {
@@ -60,12 +62,15 @@ public class BoomboxManager : MonoBehaviour
             originalImageColor = errorFeedbackImage.color;
         }
         
-        ClearForInstruments();
-        
-        if (boomboxAnimator != null)
+        // Configurar VideoPlayer
+        if (videoPlayer != null)
         {
-            boomboxAnimator.SetInteger(animationStateParameter, 0);
+            videoPlayer.isLooping = true;
+            videoPlayer.clip = videoClips[0]; // Estado de reposo inicial
+            videoPlayer.Play();
         }
+        
+        ClearForInstruments();
     }
     
     private void ClearForInstruments()
@@ -254,8 +259,8 @@ public class BoomboxManager : MonoBehaviour
             {
                 activeInstruments.Add(newInstrument);
                 
-                // Update animation
-                UpdateAnimationState();
+                // Update video state
+                UpdateVideoState();
             }
             
             Debug.Log($"Instrument {newInstrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
@@ -376,8 +381,8 @@ public class BoomboxManager : MonoBehaviour
         // 7. Remove from active instruments list
         activeInstruments.Remove(instrumentData);
         
-        // 8. Update animation
-        UpdateAnimationState();
+        // 8. Update video state
+        UpdateVideoState();
         
         // 9. If it was the only instrument, stop REAPER playback
         if (activeInstruments.Count == 0 && oscManager != null)
@@ -508,17 +513,14 @@ public class BoomboxManager : MonoBehaviour
         Debug.Log("Instrument limit reached! Executing special action...");
         isInSpecialEffect = true;
         
-        // Activate special effect animation
-        if (boomboxAnimator != null)
-        {
-            boomboxAnimator.SetTrigger(specialEffectTrigger);
-        }
+        // Play special event video (index 4)
+        PlayVideoClip(4, false);
         
         // 1. Perform special action
         yield return StartCoroutine(PerformSpecialAction());
         
-        // 2. Wait for special effect animation to finish
-        yield return new WaitForSeconds(resetDelay);
+        // 2. Wait for special effect video to finish (10 seconds)
+        yield return new WaitForSeconds(10f);
         
         // 3. Reset entire system
         ResetBoomboxSystem();
@@ -538,7 +540,7 @@ public class BoomboxManager : MonoBehaviour
             oscManager.SendSpecialAction();
         }
         
-        // Wait while special effect animation plays
+        // Wait while special effect video plays
         yield return new WaitForSeconds(3f);
         
         Debug.Log("Special action completed");
@@ -629,28 +631,65 @@ public class BoomboxManager : MonoBehaviour
         isLimitReached = false;
         isInSpecialEffect = false;
         
-        // 5. Reset animation to initial state
-        UpdateAnimationState();
+        // 5. Reset video to initial state (reposo)
+        UpdateVideoState();
         
         Debug.Log($"Boombox system reset. Total instruments: {spawnedInstruments.Count}");
     }
     
-    private void UpdateAnimationState()
+    private void UpdateVideoState()
     {
-        if (boomboxAnimator != null)
+        if (videoPlayer == null || videoClips == null || videoClips.Length == 0)
         {
-            if (isInSpecialEffect)
-            {
-                // Special effect state handled by trigger
-                return;
-            }
-            
-            // Set state based on instrument count
-            int instrumentCount = activeInstruments.Count;
-            boomboxAnimator.SetInteger(animationStateParameter, instrumentCount);
-            
-            Debug.Log($"Updating animation to state: {instrumentCount} instruments");
+            Debug.LogWarning("VideoPlayer or videoClips not set up properly");
+            return;
         }
+        
+        if (isInSpecialEffect)
+        {
+            // Special effect state handled separately
+            return;
+        }
+        
+        // Set video based on instrument count
+        int instrumentCount = activeInstruments.Count;
+        
+        // Clamp to valid range
+        int videoIndex = Mathf.Clamp(instrumentCount, 0, 3);
+        
+        PlayVideoClip(videoIndex, true); // States 0-2 are loops
+        
+        Debug.Log($"Updating video to state: {instrumentCount} instruments (index {videoIndex})");
+    }
+    
+    private void PlayVideoClip(int clipIndex, bool loop)
+    {
+        if (videoPlayer == null || videoClips == null || clipIndex < 0 || clipIndex >= videoClips.Length)
+        {
+            Debug.LogWarning($"Invalid video clip index: {clipIndex}");
+            return;
+        }
+        
+        // Stop any ongoing transitions
+        if (videoTransitionCoroutine != null)
+        {
+            StopCoroutine(videoTransitionCoroutine);
+        }
+        
+        videoTransitionCoroutine = StartCoroutine(TransitionToVideoClip(clipIndex, loop));
+    }
+    
+    private IEnumerator TransitionToVideoClip(int clipIndex, bool loop)
+    {
+        // Wait a small delay for smooth transition
+        yield return new WaitForSeconds(videoTransitionDelay);
+        
+        videoPlayer.Stop();
+        videoPlayer.clip = videoClips[clipIndex];
+        videoPlayer.isLooping = loop;
+        videoPlayer.Play();
+        
+        Debug.Log($"Playing video clip: {clipIndex} (Loop: {loop})");
     }
     
     private void SpreadAllInstruments()
@@ -726,6 +765,12 @@ public class BoomboxManager : MonoBehaviour
         
         // Spawn new instruments
         ClearForInstruments();
+        
+        // Reset video to reposo state
+        if (videoPlayer != null)
+        {
+            PlayVideoClip(0, true);
+        }
         
         Debug.Log("All instruments have been reset");
     }
