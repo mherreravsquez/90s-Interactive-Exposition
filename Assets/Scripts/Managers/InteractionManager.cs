@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using System.Collections.Generic;
 using AudioSource = UnityEngine.AudioSource;
 using Windows.Kinect;
+using DG.Tweening;
 using Joint = Windows.Kinect.Joint;
 using TMPro;
 
@@ -52,6 +53,11 @@ public class InteractionManager : MonoBehaviour
         public Vector3 grabOffset;
         public bool isGrabbing = false;
         public Vector2 currentScreenPosition;
+        
+        [Header("Fade Settings")]
+        public float lastMoveTime;
+        public Vector2 lastHandScreenPosition;
+        public bool isFaded = false;
     }
 
     private void Start()
@@ -85,6 +91,11 @@ public class InteractionManager : MonoBehaviour
                 audioSource.spatialBlend = 0f; // 2D sound
                 audioSource.playOnAwake = false;
             }
+        }
+        
+        foreach (var cursor in kinectCursors)
+        {
+            cursor.lastMoveTime = Time.time;
         }
     }
 
@@ -195,6 +206,7 @@ public class InteractionManager : MonoBehaviour
                 {
                     UpdateCursorPosition(cursor, firstBody);
                     UpdateCursorAppearance(cursor);
+                    UpdateCursorOpacity(cursor);
                     UpdateGrabSystem(cursor);
                 }
             }
@@ -219,10 +231,18 @@ public class InteractionManager : MonoBehaviour
     {
         JointType handType = cursor.useRightHand ? JointType.HandRight : JointType.HandLeft;
         Joint hand = body.Joints[handType];
-        
+    
         if (hand.TrackingState == TrackingState.Tracked)
         {
             Vector2 screenPosition = ConvertToScreen(hand.Position);
+        
+            // Check for movement
+            if (Vector2.Distance(cursor.lastHandScreenPosition, screenPosition) > 0.01f)
+            {
+                cursor.lastMoveTime = Time.time;
+                cursor.lastHandScreenPosition = screenPosition;
+            }
+        
             cursor.currentScreenPosition = screenPosition;
             MoveCursorUI(cursor, screenPosition);
         }
@@ -275,6 +295,21 @@ public class InteractionManager : MonoBehaviour
         }
     }
     
+    private void UpdateCursorOpacity(KinectCursor cursor)
+    {
+        var image = cursor.cursorTransform.GetComponent<UnityEngine.UI.Image>();
+        if (image == null) return;
+
+        bool shouldBeFaded = (Time.time - cursor.lastMoveTime) > 5f;
+
+        if (shouldBeFaded != cursor.isFaded)
+        {
+            cursor.isFaded = shouldBeFaded;
+            float targetAlpha = shouldBeFaded ? 0.15f : 1f;
+            image.DOFade(targetAlpha, 0.5f);
+        }
+    }
+    
     private void PlaySound(AudioClip clip)
     {
         if (audioSource != null && clip != null)
@@ -282,7 +317,7 @@ public class InteractionManager : MonoBehaviour
             audioSource.PlayOneShot(clip, soundVolume);
         }
     }
-
+    
     private void UpdateGrabSystem(KinectCursor cursor)
     {
         if (cursor.isGrabbing && cursor.grabbedObject != null)
