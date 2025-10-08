@@ -2,13 +2,18 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
+using UnityEngine.Serialization;
+using DG.Tweening;
 
 public class BoomboxManager : MonoBehaviour
 {
     public ReaperOSCManager oscManager;
     public ReachFeedback reachFeedback;
+    
     public int instrumentLimit = 3;
-    public Collider spreadArea;
+    [SerializeField] public Collider drumsSpreadArea;
+    [SerializeField] public Collider bassSpreadArea;
+    public Collider instrumentalSpreadArea;
     public float resetDelay = 2f;
     
     [Header("Instrument Prefabs")]
@@ -20,6 +25,14 @@ public class BoomboxManager : MonoBehaviour
     public Animator boomboxAnimator;
     public string animationStateParameter = "InstrumentCount";
     public string specialEffectTrigger = "SpecialEffect";
+    
+    [Header("Reach Feedback Reference")]
+    public Collider reacherArea; // Assign ReachFeedback collider in inspector
+    
+    [Header("Animation Settings")]
+    public float instrumentExitDelay = 0.5f;
+    public float instrumentMoveDuration = 1f;
+    public Ease instrumentMoveEase = Ease.OutBack;
     
     [SerializeField] List<InstrumentData> activeInstruments = new List<InstrumentData>();
     [SerializeField] List<GameObject> spawnedInstruments = new List<GameObject>();
@@ -40,37 +53,37 @@ public class BoomboxManager : MonoBehaviour
     
     private void ClearForInstruments()
     {
-        // Limpiar listas
+        // Clear lists
         spawnedInstruments.Clear();
         usedInstrumentTypes.Clear();
         
         if (instrumentPrefabs == null || instrumentPrefabs.Count == 0)
         {
-            Debug.LogError("No hay prefabs de instrumentos asignados en BoomboxManager");
+            Debug.LogError("No instrument prefabs assigned in BoomboxManager");
             return;
         }
         
-        if (spreadArea == null)
+        if (drumsSpreadArea == null || bassSpreadArea == null || instrumentalSpreadArea == null)
         {
-            Debug.LogError("No hay área de esparcido asignada para colocar instrumentos");
+            Debug.LogError("Missing spread areas for instrument placement");
             return;
         }
         
-        // Instanciar exactamente initialInstrumentCount instrumentos únicos
+        // Spawn exactly initialInstrumentCount unique instruments
         int instrumentsToSpawn = Mathf.Min(initialInstrumentCount, instrumentPrefabs.Count);
         for (int i = 0; i < instrumentsToSpawn; i++)
         {
             SpawnUniqueInstrument();
         }
         
-        Debug.Log($"Se instanciaron {spawnedInstruments.Count} instrumentos iniciales");
+        Debug.Log($"Spawned {spawnedInstruments.Count} initial instruments");
     }
     
     private void SpawnUniqueInstrument()
     {
         if (instrumentPrefabs.Count == 0) return;
         
-        // Obtener prefabs que no han sido usados
+        // Get prefabs that haven't been used
         var availablePrefabs = instrumentPrefabs.Where(prefab => 
         {
             if (prefab == null) return false;
@@ -79,39 +92,39 @@ public class BoomboxManager : MonoBehaviour
                    !usedInstrumentTypes.Contains(instrument.instrumentData);
         }).ToList();
         
-        // Si no hay más tipos únicos, reiniciar el pool
+        // If no more unique types, reset pool
         if (availablePrefabs.Count == 0)
         {
-            Debug.LogWarning("No hay más instrumentos únicos disponibles. Reiniciando pool...");
+            Debug.LogWarning("No more unique instruments available. Resetting pool...");
             usedInstrumentTypes.Clear();
             availablePrefabs = instrumentPrefabs.Where(prefab => prefab != null).ToList();
         }
         
         if (availablePrefabs.Count == 0) return;
         
-        // Elegir un prefab aleatorio de los disponibles
+        // Choose random prefab from available ones
         int randomIndex = Random.Range(0, availablePrefabs.Count);
         GameObject instrumentPrefab = availablePrefabs[randomIndex];
         
-        // Instanciar el instrumento
+        // Instantiate instrument
         GameObject newInstrument = Instantiate(instrumentPrefab);
         Instrument newInstrumentComponent = newInstrument.GetComponent<Instrument>();
         
         if (newInstrumentComponent == null || newInstrumentComponent.instrumentData == null)
         {
-            Debug.LogError($"El prefab {instrumentPrefab.name} no tiene componente Instrument o instrumentData");
+            Debug.LogError($"Prefab {instrumentPrefab.name} missing Instrument component or instrumentData");
             Destroy(newInstrument);
             return;
         }
         
-        // Registrar el tipo de instrumento usado
+        // Register used instrument type
         usedInstrumentTypes.Add(newInstrumentComponent.instrumentData);
         
-        // Posicionar en un lugar aleatorio del área
-        Vector3 randomPosition = GetRandomPositionInArea();
+        // Position in corresponding area based on type
+        Vector3 randomPosition = GetPositionByInstrumentType(newInstrumentComponent.instrumentData.instrumentType);
         newInstrument.transform.position = randomPosition;
         
-        // Asegurarse de que tenga el tag correcto                                               
+        // Ensure correct tag                                               
         newInstrument.tag = "Instrument";
 
         if (instrumentsParent != null)
@@ -119,20 +132,68 @@ public class BoomboxManager : MonoBehaviour
             newInstrument.transform.SetParent(instrumentsParent, true);
         }
         
-        // Agregar a la lista de instrumentos instanciados
+        // Add to spawned instruments list
         spawnedInstruments.Add(newInstrument);
         
-        Debug.Log($"Instanciado instrumento único: {newInstrument.name} en posición {randomPosition}");
+        Debug.Log($"Spawned unique instrument: {newInstrument.name} (Type: {newInstrumentComponent.instrumentData.instrumentType}) at position {randomPosition}");
+    }
+    
+    private Vector3 GetPositionByInstrumentType(InstrumentType instrumentType)
+    {
+        Collider targetArea = GetAreaForInstrumentType(instrumentType);
+        
+        if (targetArea == null)
+        {
+            Debug.LogWarning($"No area found for type {instrumentType}, using drums area as default");
+            targetArea = drumsSpreadArea;
+        }
+        
+        return GetRandomPositionInArea(targetArea);
+    }
+    
+    private Collider GetAreaForInstrumentType(InstrumentType instrumentType)
+    {
+        switch (instrumentType)
+        {
+            case InstrumentType.Drums:
+                return drumsSpreadArea;
+            case InstrumentType.Bass:
+                return bassSpreadArea;
+            case InstrumentType.Instrumental:
+                return instrumentalSpreadArea;
+            default:
+                Debug.LogWarning($"Unrecognized instrument type: {instrumentType}, using instrumental area as default");
+                return instrumentalSpreadArea;
+        }
+    }
+    
+    private Vector3 GetRandomPositionInArea(Collider area)
+    {
+        if (area == null)
+        {
+            Debug.LogError("Area is null, cannot generate position");
+            return Vector3.zero;
+        }
+        
+        Bounds bounds = area.bounds;
+        
+        Vector3 randomPosition = new Vector3(
+            Random.Range(bounds.min.x, bounds.max.x),
+            Random.Range(bounds.min.y, bounds.max.y),
+            Random.Range(bounds.min.z, bounds.max.z)
+        );
+        
+        return randomPosition;
     }
     
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Instrument") && !isLimitReached && !isInSpecialEffect)
         {
-            // Verificar que el instrumento sea uno de los instanciados
+            // Verify instrument is one of the spawned ones
             if (!spawnedInstruments.Contains(other.gameObject))
             {
-                Debug.LogWarning($"Instrumento {other.name} no está en la lista de instrumentos instanciados");
+                Debug.LogWarning($"Instrument {other.name} is not in spawned instruments list");
                 return;
             }
             
@@ -140,14 +201,14 @@ public class BoomboxManager : MonoBehaviour
             
             if (instrumentComponent == null || instrumentComponent.instrumentData == null)
             {
-                Debug.LogWarning($"Instrumento {other.name} no tiene componente Instrument o instrumentData");
+                Debug.LogWarning($"Instrument {other.name} missing Instrument component or instrumentData");
                 return;
             }
 
-            // Marcar el instrumento como no interactuable
+            // Mark instrument as non-interactable
             instrumentComponent.isInBoombox = true;
 
-            // Detener y desactivar el audio local del instrumento
+            // Stop and disable local audio
             AudioSource audioSource = other.GetComponent<AudioSource>();
             if (audioSource != null)
             {
@@ -155,7 +216,7 @@ public class BoomboxManager : MonoBehaviour
                 audioSource.enabled = false;
             }
 
-            // Remover del ReachFeedback si está ahí
+            // Remove from ReachFeedback if present
             if (reachFeedback != null)
             {
                 reachFeedback.ForceRemoveInstrument(other.gameObject);
@@ -163,37 +224,37 @@ public class BoomboxManager : MonoBehaviour
 
             InstrumentData instrument = instrumentComponent.instrumentData;
             
-            // Agregar a la lista de instrumentos activos
+            // Add to active instruments list
             if (!activeInstruments.Contains(instrument))
             {
                 activeInstruments.Add(instrument);
                 
-                // Actualizar animación
+                // Update animation
                 UpdateAnimationState();
             }
             
-            Debug.Log($"Instrumento {instrument.instrumentType} soltado en el trigger. Instrumentos activos: {activeInstruments.Count}");
+            Debug.Log($"Instrument {instrument.instrumentType} dropped in trigger. Active instruments: {activeInstruments.Count}");
             
-            // Enviar comando para desmutear el track en REAPER
+            // Send unmute command to REAPER
             if (oscManager != null)
             {
                 oscManager.SendTrackUnmute(instrument.instrumentID);
                 
-                // Si es el primer instrumento, iniciar reproducción en REAPER
+                // If first instrument, start REAPER playback
                 if (activeInstruments.Count == 1)
                 {
                     oscManager.StartReaperPlayback();
                 }
                 
-                // Ocultar y preparar el instrumento
+                // Hide and prepare instrument
                 PrepareInstrumentForBoombox(other.gameObject);
             }
             else
             {
-                Debug.LogWarning("OSC Manager no asignado en BoomboxManager");
+                Debug.LogWarning("OSC Manager not assigned in BoomboxManager");
             }
             
-            // Verificar si se alcanzó el límite
+            // Check if limit reached
             if (activeInstruments.Count >= instrumentLimit && !isLimitReached)
             {
                 isLimitReached = true;
@@ -202,30 +263,220 @@ public class BoomboxManager : MonoBehaviour
         }
     }
     
+    // Method to remove last instrument with animation
+    public void RemoveLastInstrument()
+    {
+        // Check if there are active instruments
+        if (activeInstruments.Count == 0)
+        {
+            Debug.Log("No active instruments to remove");
+            return;
+        }
+
+        // Get last active instrument (most recent)
+        InstrumentData lastInstrument = activeInstruments[activeInstruments.Count - 1];
+        
+        // Find GameObject corresponding to last instrument
+        GameObject instrumentObject = FindInstrumentObject(lastInstrument);
+        
+        if (instrumentObject != null)
+        {
+            StartCoroutine(RemoveLastInstrumentWithAnimation(instrumentObject, lastInstrument));
+        }
+        else
+        {
+            Debug.LogWarning("Could not find GameObject for last instrument");
+        }
+    }
+
+    private IEnumerator RemoveLastInstrumentWithAnimation(GameObject instrumentObject, InstrumentData instrumentData)
+    {
+        // 1. Reactivate all instrument components (except colliders)
+        ReactivateInstrument(instrumentObject, false);
+        
+        // 2. Mute track in REAPER
+        if (oscManager != null)
+        {
+            oscManager.SendTrackMute(instrumentData.instrumentID);
+        }
+        
+        // 3. Wait before starting animation
+        yield return new WaitForSeconds(instrumentExitDelay);
+        
+        // 4. Get target position in reacher area
+        Vector3 targetPosition = GetRandomPositionInReacherArea();
+        
+        // 5. DOTween animation - smoothly move to target position
+        instrumentObject.transform.DOMove(targetPosition, instrumentMoveDuration)
+            .SetEase(instrumentMoveEase)
+            .OnStart(() => {
+                Debug.Log($"Starting instrument {instrumentObject.name} animation to reacher area");
+            })
+            .OnComplete(() => {
+                // Enable colliders only when animation completes
+                EnableInstrumentColliders(instrumentObject);
+                Debug.Log($"Instrument {instrumentObject.name} reached destination");
+            });
+        
+        // 6. Optional: Add small scale animation for better effect
+        instrumentObject.transform.DOScale(1.1f, instrumentMoveDuration * 0.3f)
+            .SetLoops(2, LoopType.Yoyo)
+            .SetEase(Ease.InOutSine);
+        
+        // 7. Remove from active instruments list
+        activeInstruments.Remove(instrumentData);
+        
+        // 8. Update animation
+        UpdateAnimationState();
+        
+        // 9. If it was the only instrument, stop REAPER playback
+        if (activeInstruments.Count == 0 && oscManager != null)
+        {
+            oscManager.StopReaperPlayback();
+        }
+        
+        Debug.Log($"Instrument {instrumentData.instrumentType} removed from boombox and animated to reacher");
+    }
+
+    private void EnableInstrumentColliders(GameObject instrument)
+    {
+        if (instrument == null) return;
+        
+        // Enable colliders
+        Collider[] colliders = instrument.GetComponents<Collider>();
+        foreach (Collider collider in colliders)
+        {
+            collider.enabled = true;
+        }
+        
+        Debug.Log($"Enabled colliders for instrument {instrument.name}");
+    }
+
+    private Vector3 GetRandomPositionInReacherArea()
+    {
+        if (reacherArea == null)
+        {
+            Debug.LogWarning("No reacher area assigned");
+            return GetRandomPositionInArea(drumsSpreadArea);
+        }
+        
+        return GetRandomPositionInArea(reacherArea);
+    }
+
+    private GameObject FindInstrumentObject(InstrumentData instrumentData)
+    {
+        // Search spawned instruments marked as in boombox
+        foreach (GameObject instrument in spawnedInstruments)
+        {
+            if (instrument == null) continue;
+            
+            Instrument instrumentComp = instrument.GetComponent<Instrument>();
+            if (instrumentComp != null && 
+                instrumentComp.instrumentData == instrumentData && 
+                instrumentComp.isInBoombox)
+            {
+                return instrument;
+            }
+        }
+        
+        // Search boombox children
+        foreach (Transform child in transform)
+        {
+            if (child.CompareTag("Instrument"))
+            {
+                Instrument instrumentComp = child.GetComponent<Instrument>();
+                if (instrumentComp != null && instrumentComp.instrumentData == instrumentData)
+                {
+                    return child.gameObject;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    private void ReactivateInstrument(GameObject instrument, bool enableColliders = true)
+    {
+        if (instrument == null) return;
+        
+        Instrument instrumentComp = instrument.GetComponent<Instrument>();
+        if (instrumentComp != null)
+        {
+            instrumentComp.isInBoombox = false;
+        }
+        
+        // Reactivate MeshRenderer
+        MeshRenderer meshRenderer = instrument.GetComponent<MeshRenderer>();
+        if (meshRenderer != null)
+            meshRenderer.enabled = true;
+        
+        // Reactivate Animator
+        Animator animator = instrument.GetComponent<Animator>();
+        if (animator != null)
+            animator.enabled = true;
+        
+        // Conditionally reactivate colliders
+        if (enableColliders)
+        {
+            EnableInstrumentColliders(instrument);
+        }
+        else
+        {
+            // Disable colliders during animation
+            Collider[] colliders = instrument.GetComponents<Collider>();
+            foreach (Collider collider in colliders)
+            {
+                collider.enabled = false;
+            }
+        }
+        
+        // Reactivate AudioSource (if needed)
+        AudioSource audioSource = instrument.GetComponent<AudioSource>();
+        if (audioSource != null)
+        {
+            audioSource.enabled = true;
+        }
+        
+        // Remove as child of boombox
+        if (instrumentsParent != null)
+        {
+            instrument.transform.SetParent(instrumentsParent);
+        }
+        else
+        {
+            instrument.transform.SetParent(null);
+        }
+        
+        // Ensure normal scale before any animation
+        instrument.transform.localScale = Vector3.one;
+        
+        Debug.Log($"Instrument {instrument.name} reactivated");
+    }
+    
     private IEnumerator ExecuteSpecialAction()
     {
-        Debug.Log("¡Límite de instrumentos alcanzado! Ejecutando acción especial...");
+        Debug.Log("Instrument limit reached! Executing special action...");
         isInSpecialEffect = true;
         
-        // Activar animación de efecto especial
+        // Activate special effect animation
         if (boomboxAnimator != null)
         {
             boomboxAnimator.SetTrigger(specialEffectTrigger);
         }
         
-        // 1. Realizar acción especial
+        // 1. Perform special action
         yield return StartCoroutine(PerformSpecialAction());
         
-        // 2. Esperar a que la animación de efecto especial termine
+        // 2. Wait for special effect animation to finish
         yield return new WaitForSeconds(resetDelay);
         
-        // 3. Reiniciar todo el sistema
+        // 3. Reset entire system
         ResetBoomboxSystem();
     }
     
     private IEnumerator PerformSpecialAction()
     {
-        // Efectos visuales y de sonido
+        // Visual and sound effects
         AudioSource audioSource = GetComponent<AudioSource>();
         if (audioSource != null)
         {
@@ -237,15 +488,15 @@ public class BoomboxManager : MonoBehaviour
             oscManager.SendSpecialAction();
         }
         
-        // Esperar mientras se ejecuta la animación de efecto especial
+        // Wait while special effect animation plays
         yield return new WaitForSeconds(3f);
         
-        Debug.Log("Acción especial completada");
+        Debug.Log("Special action completed");
     }
     
     private void ResetBoomboxSystem()
     {
-        Debug.Log("Reiniciando sistema de Boombox...");
+        Debug.Log("Resetting Boombox system...");
         
         if (oscManager != null)
         {
@@ -253,10 +504,10 @@ public class BoomboxManager : MonoBehaviour
             oscManager.MuteAllTracks();
         }
         
-        // 1. Destruir instrumentos que están en la boombox
+        // 1. Destroy instruments in boombox
         List<GameObject> instrumentsToRemove = new List<GameObject>();
         
-        // Encontrar instrumentos que son hijos de la boombox (los que fueron insertados)
+        // Find instruments that are children of boombox (inserted ones)
         foreach (Transform child in transform)
         {
             if (child.CompareTag("Instrument"))
@@ -265,7 +516,7 @@ public class BoomboxManager : MonoBehaviour
             }
         }
         
-        // También buscar en spawnedInstruments por instrumentos que estén marcados como en boombox
+        // Also search spawnedInstruments for instruments marked as in boombox
         foreach (GameObject instrument in spawnedInstruments.ToList())
         {
             if (instrument == null) continue;
@@ -280,51 +531,51 @@ public class BoomboxManager : MonoBehaviour
             }
         }
         
-        // Destruir y remover instrumentos
+        // Destroy and remove instruments
         foreach (GameObject instrument in instrumentsToRemove)
         {
             if (instrument != null)
             {
-                // Remover de usedInstrumentTypes
+                // Remove from usedInstrumentTypes
                 Instrument instrumentComp = instrument.GetComponent<Instrument>();
                 if (instrumentComp != null && instrumentComp.instrumentData != null)
                 {
                     usedInstrumentTypes.Remove(instrumentComp.instrumentData);
                 }
                 
-                // Remover de spawnedInstruments
+                // Remove from spawnedInstruments
                 spawnedInstruments.Remove(instrument);
                 
-                // Destruir el GameObject
+                // Destroy GameObject
                 Destroy(instrument);
             }
         }
         
-        Debug.Log($"Se eliminaron {instrumentsToRemove.Count} instrumentos de la boombox");
+        Debug.Log($"Removed {instrumentsToRemove.Count} instruments from boombox");
         
-        // 2. Reponer instrumentos hasta alcanzar initialInstrumentCount
+        // 2. Replenish instruments up to initialInstrumentCount
         int currentInstrumentCount = spawnedInstruments.Count;
         int instrumentsNeeded = initialInstrumentCount - currentInstrumentCount;
         
-        Debug.Log($"Instrumentos actuales: {currentInstrumentCount}, Necesarios: {instrumentsNeeded}");
+        Debug.Log($"Current instruments: {currentInstrumentCount}, Needed: {instrumentsNeeded}");
         
         for (int i = 0; i < instrumentsNeeded; i++)
         {
             SpawnUniqueInstrument();
         }
         
-        // 3. Esparcir todos los instrumentos restantes
+        // 3. Spread all remaining instruments
         SpreadAllInstruments();
         
-        // 4. Limpiar estados
+        // 4. Clear states
         activeInstruments.Clear();
         isLimitReached = false;
         isInSpecialEffect = false;
         
-        // 5. Restablecer animación a estado inicial
+        // 5. Reset animation to initial state
         UpdateAnimationState();
         
-        Debug.Log($"Sistema de Boombox reiniciado. Total instrumentos: {spawnedInstruments.Count}");
+        Debug.Log($"Boombox system reset. Total instruments: {spawnedInstruments.Count}");
     }
     
     private void UpdateAnimationState()
@@ -333,91 +584,79 @@ public class BoomboxManager : MonoBehaviour
         {
             if (isInSpecialEffect)
             {
-                // El estado de efecto especial se maneja con trigger
+                // Special effect state handled by trigger
                 return;
             }
             
-            // Establecer el estado basado en la cantidad de instrumentos
+            // Set state based on instrument count
             int instrumentCount = activeInstruments.Count;
             boomboxAnimator.SetInteger(animationStateParameter, instrumentCount);
             
-            Debug.Log($"Actualizando animación a estado: {instrumentCount} instrumentos");
+            Debug.Log($"Updating animation to state: {instrumentCount} instruments");
         }
     }
     
     private void SpreadAllInstruments()
     {
-        if (spreadArea == null)
+        if (drumsSpreadArea == null || bassSpreadArea == null || instrumentalSpreadArea == null)
         {
-            Debug.LogWarning("No hay área de esparcido asignada");
+            Debug.LogWarning("Missing spread areas assigned");
             return;
         }
         
-        Debug.Log($"Esparciendo {spawnedInstruments.Count} instrumentos instanciados");
+        Debug.Log($"Spreading {spawnedInstruments.Count} spawned instruments by type");
         
-        // Esparcir todos los instrumentos instanciados
+        // Spread all spawned instruments to their corresponding areas
         foreach (GameObject instrument in spawnedInstruments)
         {
             if (instrument != null)
             {
-                Vector3 randomPosition = GetRandomPositionInArea();
-                instrument.transform.position = randomPosition;
-                
-                Debug.Log($"Instrumento {instrument.name} movido a {randomPosition}");
+                Instrument instrumentComp = instrument.GetComponent<Instrument>();
+                if (instrumentComp != null && instrumentComp.instrumentData != null)
+                {
+                    Vector3 randomPosition = GetPositionByInstrumentType(instrumentComp.instrumentData.instrumentType);
+                    instrument.transform.position = randomPosition;
+                    
+                    Debug.Log($"Instrument {instrument.name} (Type: {instrumentComp.instrumentData.instrumentType}) moved to {randomPosition}");
+                }
             }
         }
         
-        Debug.Log($"Se esparcieron {spawnedInstruments.Count} instrumentos");
-    }
-    
-    private Vector3 GetRandomPositionInArea()
-    {
-        if (spreadArea == null) return Vector3.zero;
-        
-        Bounds bounds = spreadArea.bounds;
-        
-        Vector3 randomPosition = new Vector3(
-            Random.Range(bounds.min.x, bounds.max.x),
-            Random.Range(bounds.min.y, bounds.max.y),
-            Random.Range(bounds.min.z, bounds.max.z)
-        );
-        
-        return randomPosition;
+        Debug.Log($"Spread {spawnedInstruments.Count} instruments by type");
     }
     
     private void PrepareInstrumentForBoombox(GameObject instrument)
     {
         if (instrument == null) return;
         
-        // Desactivar el SpriteRenderer
-        SpriteRenderer spriteRenderer = instrument.GetComponent<SpriteRenderer>();
-        if (spriteRenderer != null)
-            spriteRenderer.enabled = false;
+        MeshRenderer meshRenderer = instrument.GetComponent<MeshRenderer>();
+        if (meshRenderer != null)
+            meshRenderer.enabled = false;
         
-        // Desactivar el Animator
+        // Disable Animator
         Animator animator = instrument.GetComponent<Animator>();
         if (animator != null)
             animator.enabled = false;
         
-        // Desactivar colliders para evitar nuevas interacciones
+        // Disable colliders to prevent further interactions
         Collider[] colliders = instrument.GetComponents<Collider>();
         foreach (Collider collider in colliders)
         {
             collider.enabled = false;
         }
         
-        // Hacer hijo de la boombox y centrar
+        // Make child of boombox and center
         instrument.transform.SetParent(transform);
         instrument.transform.localPosition = Vector3.zero;
         instrument.transform.localRotation = Quaternion.identity;
         
-        Debug.Log($"Instrumento {instrument.name} preparado para boombox");
+        Debug.Log($"Instrument {instrument.name} prepared for boombox");
     }
     
-    // Método para limpiar y reiniciar todos los instrumentos
+    // Method to clear and reset all instruments
     public void ResetAllInstruments()
     {
-        // Destruir todos los instrumentos instanciados
+        // Destroy all spawned instruments
         foreach (GameObject instrument in spawnedInstruments)
         {
             if (instrument != null)
@@ -428,10 +667,10 @@ public class BoomboxManager : MonoBehaviour
         spawnedInstruments.Clear();
         usedInstrumentTypes.Clear();
         
-        // Instanciar nuevos instrumentos
+        // Spawn new instruments
         ClearForInstruments();
         
-        Debug.Log("Todos los instrumentos han sido reiniciados");
+        Debug.Log("All instruments have been reset");
     }
     
     public int GetActiveInstrumentCount()
