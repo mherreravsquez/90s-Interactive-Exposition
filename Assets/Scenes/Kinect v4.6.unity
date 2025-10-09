@@ -5811,7 +5811,7 @@ Transform:
   m_GameObject: {fileID: 657842759}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -5.87, z: 7.4}
+  m_LocalPosition: {x: 0, y: -6.01, z: 7.4}
   m_LocalScale: {x: 7, y: 3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6555,10 +6555,10 @@ MonoBehaviour:
   instrumentsParent: {fileID: 1460213263}
   videoPlayer: {fileID: 1451806732}
   videoClips:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 32900000, guid: 46aa4fb52fcae9946802317c0ab38079, type: 3}
+  - {fileID: 32900000, guid: c7488314afb96e9478061407a2155412, type: 3}
+  - {fileID: 32900000, guid: 9c8132c19b0d6d241aee42da30b734b4, type: 3}
+  - {fileID: 32900000, guid: 5f9443443b629b64886cc6db9037bde8, type: 3}
   videoTransitionDelay: 0.5
   reacherArea: {fileID: 1982133298}
   instrumentExitDelay: 0.5
