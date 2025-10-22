@@ -1,6 +1,6 @@
 ## Project Description
 
-90s Interactive Exposition is an interactive exhibition project that uses handtracking technology to allow users to move virtual cassettes toward a virtual boombox. When a cassette is placed in the boombox, a signal is sent to REAPER (a digital audio workstation) to create beats using samples of representative songs from the 1990s.
+Boombastic is an interactive exhibition project that uses handtracking technology to allow users to move virtual cassettes toward a virtual boombox. When a cassette is placed in the boombox, a signal is sent to REAPER (a digital audio workstation) to create beats using samples of representative songs from the 1990s.
 
 Additionally, MadMapper is implemented to perform projection mapping on the boombox model, displaying various visual reactions and animations in real time.
 
